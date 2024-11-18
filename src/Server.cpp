@@ -56,10 +56,14 @@ int main(int argc, char **argv) {
   std::cout << "Client connected\n";
   // 
 
+  while(true)
+  {
   const char* response = "+PONG\r\n";
   send(client_fd, response, strlen(response), 0);
-
+  }
+  
   close(server_fd);
+
 
   return 0;
 }
