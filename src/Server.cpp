@@ -56,12 +56,18 @@ int main(int argc, char **argv) {
   std::cout << "Client connected\n";
   // 
 
+  char buffer[1024];
   while(true)
   {
-  const char* response = "+PONG\r\n";
-  send(client_fd, response, strlen(response), 0);
+    memset(buffer,0,sizeof(buffer));
+    int bytes_rec = recv(client_fd,buffer,sizeof(buffer)-1,0);
+    if (bytes_rec <= 0) break ;
+
+      
+    const char* response = "+PONG\r\n";
+    send(client_fd, response, strlen(response), 0);
   }
-  
+
   close(server_fd);
 
 
