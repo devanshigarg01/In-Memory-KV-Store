@@ -42,9 +42,62 @@ int main(int argc, char **argv) {
     std::cerr << "listen failed\n";
     return 1;
   }
+
+
+  fd_set active_fds, ready_fds;
+  FD_ZERO(&active_fds);
+  FD_SET(server_fd, &active_fds);
+  int max_fd = server_fd;
+
+  while(true)
+  {
+    ready_fds = active_fds;       // Copy active_fds because select modifies it
+
+    // Wait for an event (e.g., new connection, incoming data)
+    int activity = select(max_fd + 1, &ready_fds, nullptr, nullptr, nullptr);
+    if (activity < 0) {
+        std::cerr << "Select error\n";
+        break;
+    }
+
+    for(int fd=0; fd <= max_fd;fd++)
+    {
+       if (FD_ISSET(fd, &ready_fds)) { // Check if this fd is ready
+            if (fd == server_fd) {
+              if (fd == server_fd) {
+                // Handle new connection
+                int new_client_fd = accept(server_fd, nullptr, nullptr);
+                if (new_client_fd < 0) {
+                    std::cerr << "Accept failed\n";
+                    continue;
+                }
+                FD_SET(new_client_fd, &active_fds); // Add new client to set
+                if (new_client_fd > max_fd) {
+                    max_fd = new_client_fd;         // Update max_fd
+                }
+                std::cout << "New client connected: " << new_client_fd << "\n";
+            }
+            else
+            {
+              char buffer[1024];
+              int bytes_rec = recv(client_fd,buffer,sizeof(buffer)-1,0);
+              if (bytes_rec <= 0)
+              {
+                close(fd);
+                FD_CLR(fd, &active_fds);
+                continue;
+              };
+
+                
+              const char* response = "+PONG\r\n";
+              send(client_fd, response, strlen(response), 0);
+            }
+
+
+
+    }
+  }
   
-  struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
   std::cout << "Waiting for a client to connect...\n";
 
   // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -52,21 +105,6 @@ int main(int argc, char **argv) {
 
   // Uncomment this block to pass the first stage
   // 
-  int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::cout << "Client connected\n";
-  // 
-
-  char buffer[1024];
-  while(true)
-  {
-    memset(buffer,0,sizeof(buffer));
-    int bytes_rec = recv(client_fd,buffer,sizeof(buffer)-1,0);
-    if (bytes_rec <= 0) break ;
-
-      
-    const char* response = "+PONG\r\n";
-    send(client_fd, response, strlen(response), 0);
-  }
 
   close(server_fd);
 
