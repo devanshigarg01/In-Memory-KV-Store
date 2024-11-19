@@ -64,7 +64,6 @@ int main(int argc, char **argv) {
     {
        if (FD_ISSET(fd, &ready_fds)) { // Check if this fd is ready
             if (fd == server_fd) {
-              if (fd == server_fd) {
                 // Handle new connection
                 int new_client_fd = accept(server_fd, nullptr, nullptr);
                 if (new_client_fd < 0) {
@@ -80,24 +79,22 @@ int main(int argc, char **argv) {
             else
             {
               char buffer[1024];
-              int bytes_rec = recv(client_fd,buffer,sizeof(buffer)-1,0);
+              int bytes_rec = recv(fd,buffer,sizeof(buffer)-1,0);
               if (bytes_rec <= 0)
               {
                 close(fd);
                 FD_CLR(fd, &active_fds);
                 continue;
-              };
+              }
 
                 
               const char* response = "+PONG\r\n";
-              send(client_fd, response, strlen(response), 0);
+              send(fd, response, strlen(response), 0);
             }
           }
         }
      }
-    }
   
-  std::cout << "Waiting for a client to connect...\n";
 
   // You can use print statements as follows for debugging, they'll be visible when running tests.
   std::cout << "Logs from your program will appear here!\n";
