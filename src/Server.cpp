@@ -7,15 +7,80 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sstream>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+string parseBulkString(istream &input) {
+    string len;
+    getline(input, len);
+
+    if (len.empty() || len[0] != '$') {
+        throw std::runtime_error("Invalid bulk string format");
+    }
+
+    int length = stoi(len.substr(1));
+
+    if (length < 0) {
+        return ""; 
+    }
+
+    string buffer(length, '\0');
+    input.read(&buffer[0], length);
+
+    input.ignore(2);
+    return buffer;
+}
+
+string RespParser(istream &input) {
+    string word;
+    getline(input, word);
+
+    if (word.empty() || word[0] != '*') {
+        throw runtime_error("Invalid RESP format");
+    }
+
+    int numArgs = stoi(word.substr(1));
+    string command = parseBulkString(input);
+    transform(command.begin(), command.end(), command.begin(), ::tolower);
+    string output;
+    if (command == "echo")
+    {
+        vector<string> data;
+        
+        for (int i =0; i <numArgs-1;++i)
+        {
+            data.push_back(parseBulkString(input));
+        }
+        
+        if (data.size() > 1)
+        {
+            output = "*" + to_string(data.size()) +"\r\n";
+            for(int i =0; i < data.size();i++)
+            {
+                string add = "$"+ to_string(data[i].length())+"\r\n"+data[i]+"\rn";
+                output += add;
+            }
+        }
+        else
+        {
+            output = "$"+to_string(data[0].length()) +"\r\n" + data[0]+"\r\n";
+        }
+    }
+    
+    return output;
+    
+}
 
 int main(int argc, char **argv) {
-  // Flush after every std::cout / std::cerr
-  std::cout << std::unitbuf;
-  std::cerr << std::unitbuf;
+  // Flush after every cout / cerr
+  cout << unitbuf;
+  cerr << unitbuf;
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
-   std::cerr << "Failed to create server socket\n";
+   cerr << "Failed to create server socket\n";
    return 1;
   }
   
@@ -23,7 +88,7 @@ int main(int argc, char **argv) {
   // ensures that we don't run into 'Address already in use' errors
   int reuse = 1;
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-    std::cerr << "setsockopt failed\n";
+    cerr << "setsockopt failed\n";
     return 1;
   }
   
@@ -33,13 +98,13 @@ int main(int argc, char **argv) {
   server_addr.sin_port = htons(6379);
   
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
-    std::cerr << "Failed to bind to port 6379\n";
+    cerr << "Failed to bind to port 6379\n";
     return 1;
   }
   
   int connection_backlog = 5;
   if (listen(server_fd, connection_backlog) != 0) {
-    std::cerr << "listen failed\n";
+    cerr << "listen failed\n";
     return 1;
   }
 
@@ -56,7 +121,7 @@ int main(int argc, char **argv) {
     // Wait for an event (e.g., new connection, incoming data)
     int activity = select(max_fd + 1, &ready_fds, nullptr, nullptr, nullptr);
     if (activity < 0) {
-        std::cerr << "Select error\n";
+        cerr << "Select error\n";
         break;
     }
 
@@ -67,19 +132,20 @@ int main(int argc, char **argv) {
                 // Handle new connection
                 int new_client_fd = accept(server_fd, nullptr, nullptr);
                 if (new_client_fd < 0) {
-                    std::cerr << "Accept failed\n";
+                    cerr << "Accept failed\n";
                     continue;
                 }
                 FD_SET(new_client_fd, &active_fds); // Add new client to set
                 if (new_client_fd > max_fd) {
                     max_fd = new_client_fd;         // Update max_fd
                 }
-                std::cout << "New client connected: " << new_client_fd << "\n";
+                cout << "New client connected: " << new_client_fd << "\n";
             }
             else
             {
               char buffer[1024];
               int bytes_rec = recv(fd,buffer,sizeof(buffer)-1,0);
+
               if (bytes_rec <= 0)
               {
                 close(fd);
@@ -87,9 +153,10 @@ int main(int argc, char **argv) {
                 continue;
               }
 
-                
-              const char* response = "+PONG\r\n";
-              send(fd, response, strlen(response), 0);
+              sstream input;
+              input << buffer;
+              const string response = RespParser(input);
+              send(fd, response.c_str(), strlen(response), 0);
             }
           }
         }
@@ -97,7 +164,7 @@ int main(int argc, char **argv) {
   
 
   // You can use print statements as follows for debugging, they'll be visible when running tests.
-  std::cout << "Logs from your program will appear here!\n";
+  cout << "Logs from your program will appear here!\n";
 
   // Uncomment this block to pass the first stage
   // 
