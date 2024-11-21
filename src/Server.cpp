@@ -67,7 +67,11 @@ string RespParser(istream &input) {
         {
             output = "$"+to_string(data[0].length()) +"\r\n" + data[0]+"\r\n";
         }
-    }
+     }
+     else if (command = "ping")
+     {
+      output = "+PONG\r\n";
+     }
     
     return output;
     
