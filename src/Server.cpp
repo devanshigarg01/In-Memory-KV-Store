@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
               sstream input;
               input << buffer;
               const string response = RespParser(input);
-              send(fd, response.c_str(), strlen(response), 0);
+              send(fd, response.c_str(), response.size(), 0);
             }
           }
         }
