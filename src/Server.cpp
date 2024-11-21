@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
                 continue;
               }
 
-              sstream input;
+              stringstream input;
               input << buffer;
               const string response = RespParser(input);
               send(fd, response.c_str(), response.size(), 0);
