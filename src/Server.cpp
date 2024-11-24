@@ -10,7 +10,10 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 using namespace std;
+
+unordered_map<string,string> mp;
 
 string parseBulkString(istream &input) {
     string len;
@@ -42,18 +45,18 @@ string RespParser(istream &input) {
     }
 
     int numArgs = stoi(word.substr(1));
-    string command = parseBulkString(input);
+
+    vector<string> data;
+        
+    for (int i =0; i <numArgs;++i)
+        {
+        data.push_back(parseBulkString(input));
+    }
+    string command = data[0];
     transform(command.begin(), command.end(), command.begin(), ::tolower);
     string output;
     if (command == "echo")
     {
-        vector<string> data;
-        
-        for (int i =0; i <numArgs-1;++i)
-        {
-            data.push_back(parseBulkString(input));
-        }
-        
         if (data.size() > 1)
         {
             output = "*" + to_string(data.size()) +"\r\n";
@@ -71,6 +74,27 @@ string RespParser(istream &input) {
      else if (command == "ping")
      {
       output = "+PONG\r\n";
+     }
+     else if (command == "set")
+     {
+        string key = data[1];
+        string value = data[2];
+        mp[key] = value;
+        
+        output = "+OK\r\n";
+     }
+     else if(command == "get")
+     {
+        string key = data[1];
+        if(mp.find(key) != mp.end())
+        {
+            string value = mp[key];
+            output = "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
+        }
+        else
+        {
+            output = "$-1\r\n";
+        }
      }
     
     return output;
