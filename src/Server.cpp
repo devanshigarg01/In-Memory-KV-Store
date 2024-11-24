@@ -139,7 +139,6 @@ string RespParser(istream &input) {
          if(data.size()>2 && data[1] == "get")
          {
             string param = data[2];
-            cout << param;
             transform(param.begin(), param.end(), param.begin(), ::tolower);
             
             if (config.find(param) != config.end()) {
