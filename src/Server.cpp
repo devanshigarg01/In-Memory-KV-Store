@@ -12,13 +12,15 @@
 #include <algorithm>
 #include <unordered_map>
 #include <ctime>
+#include <chrono>
+using namespace std::chrono;
 using namespace std;
 
 unordered_map<string,string> mp;
-unordered_map<string,time_t> expiry;
+unordered_map<string,long long> expiry;
 
-time_t getCurrentTime() {
-    return time(nullptr);
+long long getCurrentTime() {
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
 
@@ -96,7 +98,7 @@ string RespParser(istream &input) {
             if (command_expiry == "px")
             {
                string et = data[4];
-               time_t expiry_time = getCurrentTime() + (stoi(et) / 1000);
+               long long expiry_time = getCurrentTime() + (stoi(et) / 1000);
                expiry[key] = expiry_time; 
             }
         }
@@ -114,7 +116,7 @@ string RespParser(istream &input) {
             if (expiry.find(key) != expiry.end())
             {
                 
-                time_t expiry_time = expiry[key];
+                long long expiry_time = expiry[key];
                 if (expiry_time < getCurrentTime())
                 {
                     mp.erase(key);
