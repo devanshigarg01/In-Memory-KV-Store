@@ -202,14 +202,15 @@ string readString(std::ifstream &file, int length) {
 }
 
 vector<string>parseRDB(const string &filename)
-{
+{ 
+  cout << "1" << endl;
   vector<string> result;
   ifstream file(filename, ios::binary);
 
   if (!file) {
         return result;
     }
-
+  cout << "2" << endl;
   char header[9] = {0};
   file.read(header, 9);
   if (string(header, 5) != "REDIS") {
@@ -217,13 +218,7 @@ vector<string>parseRDB(const string &filename)
       return result;
   }
 
-  while (file.peek() == 0xFA) {
-    file.get();  // Read the 0xFA byte
-    int metadataNameLength = readLength(file);
-    string metadataName = readString(file, metadataNameLength);
-    int metadataValueLength = readLength(file);
-    string metadataValue = readString(file, metadataValueLength);
-  }
+  cout << "3" << endl;
 
   while (file.peek() == 0xFA) {
     file.get();  // Read the 0xFA byte
@@ -232,14 +227,23 @@ vector<string>parseRDB(const string &filename)
     int metadataValueLength = readLength(file);
     string metadataValue = readString(file, metadataValueLength);
   }
+  cout << "4" << endl;
+  while (file.peek() == 0xFA) {
+    file.get();  // Read the 0xFA byte
+    int metadataNameLength = readLength(file);
+    string metadataName = readString(file, metadataNameLength);
+    int metadataValueLength = readLength(file);
+    string metadataValue = readString(file, metadataValueLength);
+  }
 
-
+  cout << "5" << endl;
   while (file.peek() == 0xFE) {
     file.get();  // Read the 0xFE byte
     int dbIndex = readLength(file);  // Decode the database index
     
     while(file.peek() != EOF)
     {
+      cout << "6" << endl;
       unsigned char type;
       file.read(reinterpret_cast<char *>(&type), 1);
 
