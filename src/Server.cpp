@@ -234,11 +234,8 @@ vector<string>parseRDB(const string &filename)
   if (type == 0xFE) {
     file.get();  // Read the 0xFE byte
     int dbIndex = readLength(file);  // Decode the database index
-    
-    
-    while(file.peek() != EOF)
-    {
-      cout << "6" << endl;
+    cout << "here" << endl;
+
       unsigned char type;
       file.read(reinterpret_cast<char *>(&type), 1);
 
@@ -268,9 +265,7 @@ vector<string>parseRDB(const string &filename)
         else {
             cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
         }
-    }
 
-  
   }
   
   file.close();
