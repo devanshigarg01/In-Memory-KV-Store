@@ -16,6 +16,11 @@
 using namespace std::chrono;
 using namespace std;
 
+unordered_map<string, string> config = {
+    {"dir", "/tmp"},
+    {"dbfilename", "dump.rdb"}
+};
+
 unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
 
@@ -128,6 +133,28 @@ string RespParser(istream &input) {
         {
             output = "$-1\r\n";
         }
+     }
+     else if(command == "config")
+     {
+         if(data.size()>2 && data[1] == "get")
+         {
+            string param = data[2];
+            cout << param;
+            transform(param.begin(), param.end(), param.begin(), ::tolower);
+            
+            if (config.find(param) != config.end()) {
+                // Return array with two elements: parameter name and value
+                output = "*2\r\n";
+                // Parameter name
+                output += "$" + to_string(param.length()) + "\r\n" + param + "\r\n";
+                // Parameter value
+                string value = config[param];
+                output += "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
+            } else {
+                // Return empty array if parameter not found
+                output = "*0\r\n";
+            }
+         }
      }
     
     return output;
