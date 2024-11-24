@@ -179,7 +179,8 @@ int readLength(ifstream &file)
 {
   unsigned char firstByte;
   file.read(reinterpret_cast<char *>(&firstByte), 1);
-
+  
+  cout << "45 " << firstByte << endl;
   if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
         return firstByte & 0x3F;
     } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
@@ -222,11 +223,13 @@ vector<string>parseRDB(const string &filename)
 
   while (file.peek() == 0xFA) {
     file.get();  // Read the 0xFA byte
+    cout << "31" << endl;
     int metadataNameLength = readLength(file);
     string metadataName = readString(file, metadataNameLength);
     int metadataValueLength = readLength(file);
     string metadataValue = readString(file, metadataValueLength);
   }
+
   cout << "4" << endl;
   while (file.peek() == 0xFA) {
     file.get();  // Read the 0xFA byte
