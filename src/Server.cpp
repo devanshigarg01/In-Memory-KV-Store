@@ -178,6 +178,7 @@ int main(int argc, char **argv) {
         else if (flag == "--dbfilename") {
             config["dbfilename"] = value;
         }
+    }
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
