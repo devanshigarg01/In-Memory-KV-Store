@@ -180,7 +180,7 @@ int readLength(ifstream &file)
   unsigned char firstByte;
   file.read(reinterpret_cast<char *>(&firstByte), 1);
   
-  cout << "45 " << firstByte << endl;
+  cout << "First Byte: " << static_cast<int>(firstByte) << "\n";
   if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
         return firstByte & 0x3F;
     } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
