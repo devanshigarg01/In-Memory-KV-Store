@@ -11,9 +11,16 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <ctime>
 using namespace std;
 
 unordered_map<string,string> mp;
+unordered_map<string,time_t> expiry;
+
+time_t getCurrentTime() {
+    return time(nullptr);
+}
+
 
 string parseBulkString(istream &input) {
     string len;
@@ -81,16 +88,41 @@ string RespParser(istream &input) {
         string key = data[1];
         string value = data[2];
         mp[key] = value;
+
+        if (data.size() > 3)
+        {
+            string command_expiry = data[3];
+            transform(command_expiry.begin(), command_expiry.end(), command_expiry.begin(), ::tolower);
+            if (command_expiry == "px")
+            {
+               string et = data[4];
+               time_t expiry_time = getCurrentTime() + (stoi(et) / 1000);
+               expiry[key] = expiry_time; 
+            }
+        }
         
         output = "+OK\r\n";
      }
      else if(command == "get")
      {
         string key = data[1];
+    
         if(mp.find(key) != mp.end())
         {
             string value = mp[key];
             output = "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
+            if (expiry.find(key) != expiry.end())
+            {
+                
+                time_t expiry_time = expiry[key];
+                if (expiry_time < getCurrentTime())
+                {
+                    mp.erase(key);
+                    expiry.erase(key);
+                    output = "$-1\r\n"; 
+                }
+                
+            }
         }
         else
         {
