@@ -14,7 +14,7 @@
 #include <ctime>
 #include <chrono>
 #include <fstream>
-using namespace chrono;
+using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, string> config;
