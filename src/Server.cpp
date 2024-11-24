@@ -198,7 +198,15 @@ int readLength(ifstream &file)
 
 string readString(std::ifstream &file, int length) {
     vector<char> buffer(length);
+    
+    // Debug: print file position before reading
+    cout << "File position before reading string: " << file.tellg() << endl;
+    
     file.read(buffer.data(), length);
+    
+    // Debug: print file position after reading
+    cout << "File position after reading string: " << file.tellg() << endl;
+    
     return string(buffer.begin(), buffer.end());
 }
 
