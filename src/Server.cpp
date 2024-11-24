@@ -231,14 +231,14 @@ vector<string>parseRDB(const string &filename)
 
 
   while (type == 0xFA) {
-    cout << file.tellg() <endl;
+    cout << file.tellg() << endl;
     cout << static_cast<int>(type) << endl;
-    cout << file.tellg() <endl;
+    cout << file.tellg() << endl;
     cout << "31" << endl;
     int metadataNameLength = readLength(file);
-    cout << file.tellg() <endl;
+    cout << file.tellg() << endl;
     cout << "Metadata Name Length: " << metadataNameLength << endl;
-    cout << file.tellg() <endl;
+    cout << file.tellg() << endl;
     string metadataName = readString(file, metadataNameLength);
     cout << "Metadata Name: " << metadataName << endl;
 
