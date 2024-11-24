@@ -62,7 +62,7 @@ string RespParser(istream &input) {
             output = "*" + to_string(data.size()) +"\r\n";
             for(int i =0; i < data.size();i++)
             {
-                string add = "$"+ to_string(data[i].length())+"\r\n"+data[i]+"\rn";
+                string add = "$"+ to_string(data[i].length())+"\r\n"+data[i]+"\r\n";
                 output += add;
             }
         }
