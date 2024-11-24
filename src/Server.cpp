@@ -240,7 +240,7 @@ vector<string>parseRDB(const string &filename)
       file.read(reinterpret_cast<char *>(&type), 1);
 
       if (type == 0xFF) { // End of RDB file
-              break;
+              continue;
       }
 
       if(type == 0XFB)
