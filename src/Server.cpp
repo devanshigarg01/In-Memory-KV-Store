@@ -231,6 +231,7 @@ vector<string>parseRDB(const string &filename)
   }
 
   cout << "5" << endl;
+  cout << static_cast<int>(type) << endl;
   if (type == 0xFE) {  // Start of a database subsection
     cout << "6" << endl;
     file.get();  // Read the 0xFE byte
