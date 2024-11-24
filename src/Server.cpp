@@ -305,6 +305,7 @@ int main(int argc, char **argv) {
     if(has_rdb)
     {
       string rdbFile = config["dir"] + "/" + config["dbfilename"];
+      cout << "here" << endl;
       keys = parseRDB(rdbFile);
     }
   
