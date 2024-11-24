@@ -13,25 +13,27 @@
 #include <unordered_map>
 #include <ctime>
 #include <chrono>
-using namespace std::chrono;
+#include <fstream>
+using namespace chrono;
 using namespace std;
 
 unordered_map<string, string> config;
 
 unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
+vector<string> keys;
+
 
 long long getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
-
 
 string parseBulkString(istream &input) {
     string len;
     getline(input, len);
 
     if (len.empty() || len[0] != '$') {
-        throw std::runtime_error("Invalid bulk string format");
+        throw runtime_error("Invalid bulk string format");
     }
 
     int length = stoi(len.substr(1));
@@ -154,9 +156,126 @@ string RespParser(istream &input) {
             }
          }
      }
+     else if(command == "keys")
+     {
+       string config_keys = data[1];
+       transform(config_keys.begin(), config_keys.end(), config_keys.begin(), ::tolower);
+
+       if(command_keys == "*")
+       {
+        output = "*" + to_string(keys.size()) + "\r\n"; // RESP array header
+        for (const auto &key : keys) {
+          string add = "$" + to_string(key.size()) + "\r\n" + key + "\r\n";
+          output += add;
+        }
+       }
+     }
     
     return output;
     
+}
+
+int readLength(ifstream &file)
+{
+  unsigned char firstByte;
+  file.read(reinterpret_cast<char *>(&firstByte), 1);
+
+  if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
+        return firstByte & 0x3F;
+    } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
+        unsigned char secondByte;
+        file.read(reinterpret_cast<char *>(&secondByte), 1);
+        return ((firstByte & 0x3F) << 8) | secondByte;
+    } else if ((firstByte & 0xC0) == 0x80) {  // 32-bit encoding
+        uint32_t length;
+        file.read(reinterpret_cast<char *>(&length), 4);
+        return length;
+    } else {
+        throw std::runtime_error("Invalid length encoding");
+    }
+}
+
+string readString(std::ifstream &file, int length) {
+    vector<char> buffer(length);
+    file.read(buffer.data(), length);
+    return string(buffer.begin(), buffer.end());
+}
+
+vector<string>parseRDB(const string &filename)
+{
+  vector<string> result;
+  ifstream file(filename, ios::binary);
+
+  if (!file) {
+        return result;
+    }
+
+  char header[9] = {0};
+  file.read(header, 9);
+  if (string(header, 5) != "REDIS") {
+      cerr << "Invalid RDB file header.\n";
+      return result;
+  }
+
+  while (file.peek() == 0xFA) {
+    file.get();  // Read the 0xFA byte
+    int metadataNameLength = readLength(file);
+    string metadataName = readString(file, metadataNameLength);
+    int metadataValueLength = readLength(file);
+    string metadataValue = readString(file, metadataValueLength);
+  }
+
+  while (file.peek() == 0xFA) {
+    file.get();  // Read the 0xFA byte
+    int metadataNameLength = readLength(file);
+    string metadataName = readString(file, metadataNameLength);
+    int metadataValueLength = readLength(file);
+    string metadataValue = readString(file, metadataValueLength);
+  }
+
+
+  while (file.peek() == 0xFE) {
+    file.get();  // Read the 0xFE byte
+    int dbIndex = readLength(file);  // Decode the database index
+    
+    while(file.peek() != EOF)
+    {
+      unsigned char type;
+      file.read(reinterpret_cast<char *>(&type), 1);
+
+      if (type == 0xFF) { // End of RDB file
+              break;
+      }
+
+      if(type == 0XFB)
+      {
+        file.get();  // Read the 0xFE byte
+        int KeyValueHashSize = readLength(file);
+        int KeyExpiryHashSize = readLength(file);
+      }
+
+      if (type == 0x00) { // String key-value pair
+            int keyLength = readLength(file);
+            string key = readString(file, keyLength);
+            result.push_back(key);
+
+            int valueLength = readLength(file); // Value is also a string
+            string value = readString(file, valueLength); // Ignore value for now
+        } 
+        else if (type == 0xFC || type == 0xFD) {  
+            int expireLength = (type == 0xFC) ? 8 : 4;
+            file.ignore(expireLength); 
+        } 
+        else {
+            cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
+        }
+    }
+
+  
+  }
+  
+  file.close();
+  return result;
 }
 
 int main(int argc, char **argv) {
@@ -166,6 +285,7 @@ int main(int argc, char **argv) {
 
   config["dir"] = "/tmp";
   config["dbfilename"] = "dump.rdb";
+  bool has_rdb = false;
     
     // Process command line args
     for (int i = 1; i < argc - 1; i += 2) {
@@ -177,7 +297,14 @@ int main(int argc, char **argv) {
         }
         else if (flag == "--dbfilename") {
             config["dbfilename"] = value;
+            has_rdb = true;
         }
+    }
+
+    if(has_rdb)
+    {
+      string rdbFile = config["dir"] + "/" + config["dbfilename"];
+      keys = parseRDB(rdbFile);
     }
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
