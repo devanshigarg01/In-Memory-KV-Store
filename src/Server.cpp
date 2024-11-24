@@ -16,10 +16,7 @@
 using namespace std::chrono;
 using namespace std;
 
-unordered_map<string, string> config = {
-    {"dir", "/tmp"},
-    {"dbfilename", "dump.rdb"}
-};
+unordered_map<string, string> config;
 
 unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
@@ -166,6 +163,21 @@ int main(int argc, char **argv) {
   // Flush after every cout / cerr
   cout << unitbuf;
   cerr << unitbuf;
+
+  config["dir"] = "/tmp";
+  config["dbfilename"] = "dump.rdb";
+    
+    // Process command line args
+    for (int i = 1; i < argc - 1; i += 2) {
+        string flag = argv[i];
+        string value = argv[i + 1];
+        
+        if (flag == "--dir") {
+            config["dir"] = value;
+        }
+        else if (flag == "--dbfilename") {
+            config["dbfilename"] = value;
+        }
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
