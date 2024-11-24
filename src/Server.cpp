@@ -57,10 +57,11 @@ string RespParser(istream &input) {
     string output;
     if (command == "echo")
     {
-        if (data.size() > 1)
+        
+        if (data.size() > 2)
         {
             output = "*" + to_string(data.size()) +"\r\n";
-            for(int i =0; i < data.size();i++)
+            for(int i =1; i < data.size();i++)
             {
                 string add = "$"+ to_string(data[i].length())+"\r\n"+data[i]+"\r\n";
                 output += add;
@@ -68,9 +69,9 @@ string RespParser(istream &input) {
         }
         else
         {
-            output = "$"+to_string(data[0].length()) +"\r\n" + data[0]+"\r\n";
+            output = "$"+to_string(data[1].length()) +"\r\n" + data[1]+"\r\n";
         }
-     }
+    }
      else if (command == "ping")
      {
       output = "+PONG\r\n";
