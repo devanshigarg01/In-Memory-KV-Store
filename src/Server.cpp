@@ -219,11 +219,11 @@ vector<string>parseRDB(const string &filename)
 
   unsigned char type;
   file.read(reinterpret_cast<char *>(&type), 1);
-
+  cout << static_cast<int>(type) << endl;
 
 
   if (type == 0xFA) {
-    file.read(reinterpret_cast<char *>(&type), 1);// Read the 0xFA byte
+    cout << static_cast<int>(type) << endl;
     cout << "31" << endl;
     int metadataNameLength = readLength(file);
     cout << "Metadata Name Length: " << metadataNameLength << endl;
