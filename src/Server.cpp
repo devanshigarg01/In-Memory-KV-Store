@@ -108,7 +108,7 @@ string RespParser(istream &input) {
      else if(command == "get")
      {
         string key = data[1];
-    
+        output = "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
         if(mp.find(key) != mp.end())
         {
             string value = mp[key];
