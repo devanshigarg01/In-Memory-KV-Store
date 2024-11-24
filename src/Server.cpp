@@ -224,13 +224,15 @@ vector<string>parseRDB(const string &filename)
 
 
   if (type == 0xFA) {
-    file.get();  // Read the 0xFA byte
+    file.read(reinterpret_cast<char *>(&type), 1);// Read the 0xFA byte
     cout << "31" << endl;
     int metadataNameLength = readLength(file);
     string metadataName = readString(file, metadataNameLength);
-    cout << metadataName << endl;
+    cout << "Metadata Name: " << metadataName << endl;
+
     int metadataValueLength = readLength(file);
     string metadataValue = readString(file, metadataValueLength);
+    cout << "Metadata Value: " << metadataValue << endl;
   }
 
   cout << "5" << endl;
