@@ -158,8 +158,8 @@ string RespParser(istream &input) {
      }
      else if(command == "keys")
      {
-       string config_keys = data[1];
-       transform(config_keys.begin(), config_keys.end(), config_keys.begin(), ::tolower);
+       string command_keys = data[1];
+       transform(command_keys.begin(), command_keys.end(), command_keys.begin(), ::tolower);
 
        if(command_keys == "*")
        {
