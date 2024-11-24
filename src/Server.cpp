@@ -108,14 +108,12 @@ string RespParser(istream &input) {
      else if(command == "get")
      {
         string key = data[1];
-        output = "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
         if(mp.find(key) != mp.end())
         {
             string value = mp[key];
             output = "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
             if (expiry.find(key) != expiry.end())
-            {
-                
+            {  
                 long long expiry_time = expiry[key];
                 if (expiry_time < getCurrentTime())
                 {
