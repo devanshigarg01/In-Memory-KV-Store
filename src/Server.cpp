@@ -136,7 +136,9 @@ string RespParser(istream &input) {
      }
      else if(command == "config")
      {
-         if(data.size()>2 && data[1] == "get")
+         string config_command = data[1];
+         transform(config_command.begin(), config_command.end(), config_command.begin(), ::tolower);
+         if(data.size()>2 && config_command == "get")
          {
             string param = data[2];
             transform(param.begin(), param.end(), param.begin(), ::tolower);
