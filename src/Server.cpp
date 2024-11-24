@@ -231,42 +231,57 @@ vector<string>parseRDB(const string &filename)
   }
 
   cout << "5" << endl;
-  if (type == 0xFE) {
+  if (type == 0xFE) {  // Start of a database subsection
     file.get();  // Read the 0xFE byte
     int dbIndex = readLength(file);  // Decode the database index
-    cout << "here" << endl;
+    cout << "Processing database index: " << dbIndex << endl;
 
-      unsigned char type;
-      file.read(reinterpret_cast<char *>(&type), 1);
+    while (true) {  // Loop through database entries
+        unsigned char type;
+        file.read(reinterpret_cast<char *>(&type), 1);
 
-      if (type == 0xFF) { // End of RDB file
-              continue;
-      }
-
-      if(type == 0XFB)
-      {
-        file.get();  // Read the 0xFE byte
-        int KeyValueHashSize = readLength(file);
-        int KeyExpiryHashSize = readLength(file);
-      }
-
-      if (type == 0x00) { // String key-value pair
-            int keyLength = readLength(file);
-            string key = readString(file, keyLength);
-            result.push_back(key);
-
-            int valueLength = readLength(file); // Value is also a string
-            string value = readString(file, valueLength); // Ignore value for now
-        } 
-        else if (type == 0xFC || type == 0xFD) {  
-            int expireLength = (type == 0xFC) ? 8 : 4;
-            file.ignore(expireLength); 
-        } 
-        else {
-            cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
+        if (file.eof()) {
+            cerr << "Unexpected end of file.\n";
+            break;
         }
 
-  }
+        if (type == 0xFF) {  // End of RDB file
+            cout << "End of RDB file.\n";
+            break;
+        }
+
+        if (type == 0xFB) {  // Hash table size information
+            int keyValueHashSize = readLength(file);
+            int keyExpiryHashSize = readLength(file);
+            cout << "Hash Table Sizes - Key/Value: " << keyValueHashSize
+                 << ", Expiry: " << keyExpiryHashSize << endl;
+            continue;
+        }
+
+        if (type == 0x00) {  // String key-value pair
+            int keyLength = readLength(file);
+            string key = readString(file, keyLength);
+
+            int valueLength = readLength(file);
+            string value = readString(file, valueLength);
+
+            cout << "Key: " << key << ", Value: " << value << endl;
+            result.push_back(key);  // Store the key in the result
+            continue;
+        }
+
+        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
+            int expireLength = (type == 0xFC) ? 8 : 4;
+            file.ignore(expireLength);  // Skip expiry timestamp
+            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
+            continue;
+        }
+
+        cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
+        break;  // Stop processing on unknown type
+    }
+}
+
   
   file.close();
   return result;
