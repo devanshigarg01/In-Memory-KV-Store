@@ -182,7 +182,6 @@ int readLength(ifstream &file)
   
   cout << "First Byte: " << static_cast<int>(firstByte) << "\n";
   if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
-        cout << "yay" << endl;
         return firstByte & 0x3F;
     } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
         unsigned char secondByte;
