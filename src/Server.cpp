@@ -230,7 +230,7 @@ vector<string>parseRDB(const string &filename)
   cout << static_cast<int>(type) << endl;
 
 
-  if (type == 0xFA) {
+  while (type == 0xFA) {
     cout << static_cast<int>(type) << endl;
     cout << "31" << endl;
     int metadataNameLength = readLength(file);
@@ -242,10 +242,11 @@ vector<string>parseRDB(const string &filename)
     cout << "Metadata Value Length: " << metadataValueLength << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
+
+    file.read(reinterpret_cast<char *>(&type), 1);
   }
 
   cout << "5" << endl;
-  file.read(reinterpret_cast<char *>(&type), 1);
   cout << static_cast<int>(type) << endl;
   if (type == 0xFE) {  // Start of a database subsection
     cout << "6" << endl;
