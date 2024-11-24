@@ -20,7 +20,7 @@ unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
 
 long long getCurrentTime() {
-    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
 
@@ -98,7 +98,7 @@ string RespParser(istream &input) {
             if (command_expiry == "px")
             {
                string et = data[4];
-               long long expiry_time = getCurrentTime() + (stoi(et) / 1000);
+               long long expiry_time = getCurrentTime() + stoll(et);
                expiry[key] = expiry_time; 
             }
         }
