@@ -283,6 +283,7 @@ int main(int argc, char **argv) {
   cout << unitbuf;
   cerr << unitbuf;
 
+  cout << "hey";
   config["dir"] = "/tmp";
   config["dbfilename"] = "dump.rdb";
   bool has_rdb = false;
