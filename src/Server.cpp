@@ -232,6 +232,7 @@ vector<string>parseRDB(const string &filename)
 
   cout << "5" << endl;
   if (type == 0xFE) {  // Start of a database subsection
+    cout << "6" << endl;
     file.get();  // Read the 0xFE byte
     int dbIndex = readLength(file);  // Decode the database index
     cout << "Processing database index: " << dbIndex << endl;
@@ -239,7 +240,7 @@ vector<string>parseRDB(const string &filename)
     while (true) {  // Loop through database entries
         unsigned char type;
         file.read(reinterpret_cast<char *>(&type), 1);
-        cout << 6 << endl;
+        cout << "7" << endl;
         if (file.eof()) {
             cerr << "Unexpected end of file.\n";
             break;
