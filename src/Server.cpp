@@ -243,11 +243,6 @@ vector<string>parseRDB(const string &filename)
     cout << "Metadata Value: " << metadataValue << endl;
     file.read(reinterpret_cast<char *>(&type), 1);
     cout << static_cast<int>(type) << endl;
-    file.read(reinterpret_cast<char *>(&type), 1);
-    cout << static_cast<int>(type) << endl;
-    file.read(reinterpret_cast<char *>(&type), 1);
-    cout << static_cast<int>(type) << endl;
-
   }
 
   cout << "5" << endl;
