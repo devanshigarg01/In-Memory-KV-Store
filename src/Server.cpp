@@ -18,7 +18,6 @@ using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, string> config;
-
 unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
 vector<string> keys;
@@ -143,15 +142,11 @@ string RespParser(istream &input) {
             transform(param.begin(), param.end(), param.begin(), ::tolower);
             
             if (config.find(param) != config.end()) {
-                // Return array with two elements: parameter name and value
                 output = "*2\r\n";
-                // Parameter name
                 output += "$" + to_string(param.length()) + "\r\n" + param + "\r\n";
-                // Parameter value
                 string value = config[param];
                 output += "$" + to_string(value.length()) + "\r\n" + value + "\r\n";
             } else {
-                // Return empty array if parameter not found
                 output = "*0\r\n";
             }
          }
@@ -163,7 +158,7 @@ string RespParser(istream &input) {
 
        if(command_keys == "*")
        {
-        output = "*" + to_string(keys.size()) + "\r\n"; // RESP array header
+        output = "*" + to_string(keys.size()) + "\r\n";
         for (const auto &key : keys) {
           string add = "$" + to_string(key.size()) + "\r\n" + key + "\r\n";
           output += add;
@@ -179,9 +174,6 @@ int readLength(ifstream &file)
 {
   unsigned char firstByte;
   file.read(reinterpret_cast<char *>(&firstByte), 1);
-  
-  cout << "First Byte: " << static_cast<int>(firstByte) << "\n";
-  cout << file.tellg() << endl;
   if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
         return firstByte & 0x3F;
     } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
@@ -214,15 +206,7 @@ int readLength(ifstream &file)
 
 string readString(std::ifstream &file, int length) {
     vector<char> buffer(length);
-    
-    // Debug: print file position before reading
-    // cout << "File position before reading string: " << file.tellg() << endl;
-    
     file.read(buffer.data(), length);
-    
-    // Debug: print file position after reading
-    // cout << "File position after reading string: " << file.tellg() << endl;
-    
     return string(buffer.begin(), buffer.end());
 }
 
@@ -247,7 +231,6 @@ vector<string>parseRDB(const string &filename)
 
 
   while (type == 0xFA) {
-    cout << "auxillary start" << endl;
     int metadataNameLength = readLength(file);
     cout << "Metadata Name Length: " << metadataNameLength << endl;
     string metadataName = readString(file, metadataNameLength);
@@ -257,18 +240,18 @@ vector<string>parseRDB(const string &filename)
     cout << "Metadata Value Length: " << metadataValueLength << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
+    
     file.read(reinterpret_cast<char *>(&type), 1);
   }
 
-  cout << "database start" << endl;
-  cout << static_cast<int>(type) << endl;
+
   if (type == 0xFE) {  // Start of a database subsection
-    int dbIndex = readLength(file);  // Decode the database index
+    int dbIndex = readLength(file);  
     cout << "Processing database index: " << dbIndex << endl;
 
-    while (true) {  // Loop through database entries
+    while (true) { 
         file.read(reinterpret_cast<char *>(&type), 1);
-        cout << "while true loop" << endl;
+        
         if (file.eof()) {
             cerr << "Unexpected end of file.\n";
             break;
@@ -291,23 +274,25 @@ vector<string>parseRDB(const string &filename)
             int keyLength = readLength(file);
             string key = readString(file, keyLength);
 
+
             int valueLength = readLength(file);
             string value = readString(file, valueLength);
 
+            mp[key] = value;
             cout << "Key: " << key << ", Value: " << value << endl;
-            result.push_back(key);  // Store the key in the result
+            result.push_back(key); 
             continue;
         }
 
         if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
             int expireLength = (type == 0xFC) ? 8 : 4;
-            file.ignore(expireLength);  // Skip expiry timestamp
+            file.ignore(expireLength);  
             cout << "Skipped expiry timestamp of length: " << expireLength << endl;
             continue;
         }
 
         cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
-        break;  // Stop processing on unknown type
+        break;
     }
 }
 
