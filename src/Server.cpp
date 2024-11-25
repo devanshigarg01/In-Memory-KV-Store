@@ -181,6 +181,7 @@ int readLength(ifstream &file)
   file.read(reinterpret_cast<char *>(&firstByte), 1);
   
   cout << "First Byte: " << static_cast<int>(firstByte) << "\n";
+  cout << file.tellg() << endl;
   if ((firstByte & 0xC0) == 0x00) {  // 6-bit encoding
         return firstByte & 0x3F;
     } else if ((firstByte & 0xC0) == 0x40) {  // 14-bit encoding
@@ -231,22 +232,20 @@ vector<string>parseRDB(const string &filename)
 
 
   while (type == 0xFA) {
-    cout << file.tellg() << endl;
-    cout << static_cast<int>(type) << endl;
-    cout << file.tellg() << endl;
-    cout << "31" << endl;
+    cout << "start" << endl;
+    cout << "before name length" << file.tellg() << endl;
     int metadataNameLength = readLength(file);
-    cout << file.tellg() << endl;
+    cout << "after name length" << file.tellg() << endl;
     cout << "Metadata Name Length: " << metadataNameLength << endl;
-    cout << file.tellg() << endl;
     string metadataName = readString(file, metadataNameLength);
     cout << "Metadata Name: " << metadataName << endl;
-
+    cout << file.tellg() << endl;
     int metadataValueLength = readLength(file);
     cout << "Metadata Value Length: " << metadataValueLength << endl;
+    cout << file.tellg() << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
-
+    cout << file.tellg() << endl;
     file.read(reinterpret_cast<char *>(&type), 1);
   }
 
