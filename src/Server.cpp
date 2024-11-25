@@ -14,17 +14,16 @@
 #include <ctime>
 #include <chrono>
 #include <fstream>
-#include <cstdint>
 using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, string> config;
 unordered_map<string,string> mp;
-unordered_map<string,uint64_t> expiry;
+unordered_map<string,long long> expiry;
 vector<string> keys;
 
 
-uint64_t getCurrentTime() {
+long long getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
@@ -102,7 +101,7 @@ string RespParser(istream &input) {
             if (command_expiry == "px")
             {
                string et = data[4];
-               uint64_t expiry_time = getCurrentTime() + stoll(et);
+               long long expiry_time = getCurrentTime() + stoll(et);
                expiry[key] = expiry_time; 
             }
         }
@@ -271,33 +270,7 @@ vector<string>parseRDB(const string &filename)
             continue;
         }
 
-        int flag_expiry = false;
-        uint64_t expiry_time_milliseconds;
-        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
-            int expireLength = (type == 0xFC) ? 8 : 4;
-            file.read(reinterpret_cast<char *>(&type), 1);
-            flag_expiry = true;
-            string expiry_time_str = readString(file, expireLength);
-            
-            if (expireLength == 4) {
-              uint32_t expiry_time_seconds;
-              file.read(reinterpret_cast<char *>(&expiry_time_seconds), sizeof(expiry_time_seconds));
-              
-              expiry_time_milliseconds = static_cast<uint64_t>(expiry_time_seconds) * 1000;
-              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
-            } 
-            else if (expireLength == 8) {
-              file.read(reinterpret_cast<char *>(&expiry_time_milliseconds), sizeof(expiry_time_milliseconds));
-              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
-            }
-        }
-            file.ignore(expireLength);  
-            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
-        }
-
-
-
-         if (type == 0x00) {  // String key-value pair
+        if (type == 0x00) {  // String key-value pair
             int keyLength = readLength(file);
             string key = readString(file, keyLength);
 
@@ -308,12 +281,15 @@ vector<string>parseRDB(const string &filename)
             mp[key] = value;
             cout << "Key: " << key << ", Value: " << value << endl;
             result.push_back(key); 
-
-            if (flag_expiry) expiry[key] = expiry_time_milliseconds;
             continue;
         }
 
-
+        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
+            int expireLength = (type == 0xFC) ? 8 : 4;
+            file.ignore(expireLength);  
+            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
+            continue;
+        }
 
         cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
         break;
