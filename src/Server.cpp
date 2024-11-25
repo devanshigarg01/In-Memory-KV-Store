@@ -244,6 +244,7 @@ vector<string>parseRDB(const string &filename)
     cout << "Metadata Value Length: " << metadataValueLength << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
+    file.read(reinterpret_cast<char *>(&type), 1);
   }
 
   cout << "5" << endl;
