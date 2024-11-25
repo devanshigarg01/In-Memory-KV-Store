@@ -195,7 +195,20 @@ int readLength(ifstream &file)
     } else {
         int specialType = firstByte & 0x3F;
         cout << "data type" << specialType << endl;
-        throw std::runtime_error("Invalid length encoding");
+        
+        switch (specialType) {
+        case 0: return 1;  // 8-bit integer length
+        case 1: return 2;  // 16-bit integer length
+        case 2: return 4;  // 32-bit integer length
+        case 3: {  // LZF compressed string
+            int compressedLength = readLength(file);
+            int uncompressedLength = readLength(file);
+            return compressedLength;
+        }
+        default:
+            throw std::runtime_error("Unknown special encoding");
+
+        }
     }
 }
 
