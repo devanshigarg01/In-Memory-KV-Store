@@ -14,16 +14,17 @@
 #include <ctime>
 #include <chrono>
 #include <fstream>
+#include <cstdint>
 using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, string> config;
 unordered_map<string,string> mp;
-unordered_map<string,long long> expiry;
+unordered_map<string,uint64_t> expiry;
 vector<string> keys;
 
 
-long long getCurrentTime() {
+uint64_t getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
@@ -101,7 +102,7 @@ string RespParser(istream &input) {
             if (command_expiry == "px")
             {
                string et = data[4];
-               long long expiry_time = getCurrentTime() + stoll(et);
+               uint64_t expiry_time = getCurrentTime() + stoll(et);
                expiry[key] = expiry_time; 
             }
         }
@@ -270,7 +271,33 @@ vector<string>parseRDB(const string &filename)
             continue;
         }
 
-        if (type == 0x00) {  // String key-value pair
+        int flag_expiry = false;
+        uint64_t expiry_time_milliseconds;
+        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
+            int expireLength = (type == 0xFC) ? 8 : 4;
+            file.read(reinterpret_cast<char *>(&type), 1);
+            flag_expiry = true;
+            string expiry_time_str = readString(file, expireLength);
+            
+            if (expireLength == 4) {
+              uint32_t expiry_time_seconds;
+              file.read(reinterpret_cast<char *>(&expiry_time_seconds), sizeof(expiry_time_seconds));
+              
+              expiry_time_milliseconds = static_cast<uint64_t>(expiry_time_seconds) * 1000;
+              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
+            } 
+            else if (expireLength == 8) {
+              file.read(reinterpret_cast<char *>(&expiry_time_milliseconds), sizeof(expiry_time_milliseconds));
+              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
+            }
+        }
+            file.ignore(expireLength);  
+            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
+        }
+
+
+
+         if (type == 0x00) {  // String key-value pair
             int keyLength = readLength(file);
             string key = readString(file, keyLength);
 
@@ -281,15 +308,12 @@ vector<string>parseRDB(const string &filename)
             mp[key] = value;
             cout << "Key: " << key << ", Value: " << value << endl;
             result.push_back(key); 
+
+            if (flag_expiry) expiry[key] = expiry_time_milliseconds;
             continue;
         }
 
-        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
-            int expireLength = (type == 0xFC) ? 8 : 4;
-            file.ignore(expireLength);  
-            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
-            continue;
-        }
+
 
         cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
         break;
@@ -310,6 +334,7 @@ int main(int argc, char **argv) {
   config["dir"] = "/tmp";
   config["dbfilename"] = "dump.rdb";
   bool has_rdb = false;
+  int port_number = 6379;
     
     // Process command line args
     for (int i = 1; i < argc - 1; i += 2) {
@@ -323,6 +348,7 @@ int main(int argc, char **argv) {
             config["dbfilename"] = value;
             has_rdb = true;
         }
+        else if(flag == "--port") port_number = stoi(value);
     }
 
     if(has_rdb)
@@ -349,10 +375,10 @@ int main(int argc, char **argv) {
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(6379);
+  server_addr.sin_port = htons(port_number);
   
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
-    cerr << "Failed to bind to port 6379\n";
+    cerr << "Failed to bind to port" << port_number << endl;
     return 1;
   }
   
