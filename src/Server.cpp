@@ -233,20 +233,21 @@ vector<string>parseRDB(const string &filename)
 
   while (type == 0xFA) {
     cout << "start" << endl;
-    cout << "before name length" << file.tellg() << endl;
     int metadataNameLength = readLength(file);
-    cout << "after name length" << file.tellg() << endl;
     cout << "Metadata Name Length: " << metadataNameLength << endl;
     string metadataName = readString(file, metadataNameLength);
     cout << "Metadata Name: " << metadataName << endl;
-    cout << file.tellg() << endl;
     int metadataValueLength = readLength(file);
     cout << "Metadata Value Length: " << metadataValueLength << endl;
-    cout << file.tellg() << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
-    cout << file.tellg() << endl;
     file.read(reinterpret_cast<char *>(&type), 1);
+    cout << static_cast<int>(type) << endl;
+    file.read(reinterpret_cast<char *>(&type), 1);
+    cout << static_cast<int>(type) << endl;
+    file.read(reinterpret_cast<char *>(&type), 1);
+    cout << static_cast<int>(type) << endl;
+
   }
 
   cout << "5" << endl;
