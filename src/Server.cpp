@@ -247,7 +247,7 @@ vector<string>parseRDB(const string &filename)
 
 
   while (type == 0xFA) {
-    cout << "start" << endl;
+    cout << "auxillary start" << endl;
     int metadataNameLength = readLength(file);
     cout << "Metadata Name Length: " << metadataNameLength << endl;
     string metadataName = readString(file, metadataNameLength);
@@ -260,18 +260,15 @@ vector<string>parseRDB(const string &filename)
     file.read(reinterpret_cast<char *>(&type), 1);
   }
 
-  cout << "5" << endl;
+  cout << "database start" << endl;
   cout << static_cast<int>(type) << endl;
   if (type == 0xFE) {  // Start of a database subsection
-    cout << "6" << endl;
-    file.get();  // Read the 0xFE byte
     int dbIndex = readLength(file);  // Decode the database index
     cout << "Processing database index: " << dbIndex << endl;
 
     while (true) {  // Loop through database entries
-        unsigned char type;
         file.read(reinterpret_cast<char *>(&type), 1);
-        cout << "7" << endl;
+        cout << "while true loop" << endl;
         if (file.eof()) {
             cerr << "Unexpected end of file.\n";
             break;
