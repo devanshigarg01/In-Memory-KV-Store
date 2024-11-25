@@ -193,6 +193,8 @@ int readLength(ifstream &file)
         file.read(reinterpret_cast<char *>(&length), 4);
         return length;
     } else {
+        int specialType = firstByte & 0x3F;
+        cout << "data type" << specialType << endl;
         throw std::runtime_error("Invalid length encoding");
     }
 }
@@ -201,12 +203,12 @@ string readString(std::ifstream &file, int length) {
     vector<char> buffer(length);
     
     // Debug: print file position before reading
-    cout << "File position before reading string: " << file.tellg() << endl;
+    // cout << "File position before reading string: " << file.tellg() << endl;
     
     file.read(buffer.data(), length);
     
     // Debug: print file position after reading
-    cout << "File position after reading string: " << file.tellg() << endl;
+    // cout << "File position after reading string: " << file.tellg() << endl;
     
     return string(buffer.begin(), buffer.end());
 }
@@ -237,12 +239,11 @@ vector<string>parseRDB(const string &filename)
     cout << "Metadata Name Length: " << metadataNameLength << endl;
     string metadataName = readString(file, metadataNameLength);
     cout << "Metadata Name: " << metadataName << endl;
+    
     int metadataValueLength = readLength(file);
     cout << "Metadata Value Length: " << metadataValueLength << endl;
     string metadataValue = readString(file, metadataValueLength);
     cout << "Metadata Value: " << metadataValue << endl;
-    file.read(reinterpret_cast<char *>(&type), 1);
-    cout << static_cast<int>(type) << endl;
   }
 
   cout << "5" << endl;
