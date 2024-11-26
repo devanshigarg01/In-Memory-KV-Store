@@ -190,7 +190,7 @@ string RespParser(istream &input) {
         {
 
           string add = "role:" + replicationState.role + "\r\n" +
-                        "master_repl_offset:" + to_string(replicationState.master_repl_offset) + "\r\n" +
+                        "master_repl_offset:" + replicationState.master_repl_offset + "\r\n" +
                         "master_replid:" + replicationState.master_replid;
           output = "$" + to_string(add.length()) + "\r\n" + add;
         }
