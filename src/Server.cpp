@@ -290,6 +290,7 @@ vector<string>parseRDB(const string &filename)
               file.read(reinterpret_cast<char *>(&expiry_time_milliseconds), sizeof(expiry_time_milliseconds));
               std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
             }
+            file.read(reinterpret_cast<char *>(&type), 1);
         }
 
 
