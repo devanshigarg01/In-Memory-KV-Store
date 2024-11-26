@@ -25,6 +25,8 @@ vector<string> keys;
 
 struct ReplicationState {
     string role; // master or slave
+    string master_repl_offset;
+    string master_repl_offset;
 };
 
 ReplicationState replicationState;
@@ -32,6 +34,9 @@ ReplicationState replicationState;
 void initializeReplicationState(string server_role)
 {
   replicationState.role = server_role;
+  replicationState.master_repl_offset = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+  replicationState.master_repl_offset = "0";
+
 }
 
 uint64_t getCurrentTime() {
@@ -184,6 +189,8 @@ string RespParser(istream &input) {
         if(command_info == "replication")
         {
           output = "$" + to_string(5+replicationState.role.length()) + "\r\n" + "role:" + replicationState.role + "\r\n";
+          output += "master_repl_offset:" + replicationState.master_repl_offset + "\r\n";
+          output += "master_replid:" + replicationState.master_replid + "\r\n";
         }
      }
     
