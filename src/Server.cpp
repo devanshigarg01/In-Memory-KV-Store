@@ -22,6 +22,15 @@ unordered_map<string,string> mp;
 unordered_map<string,long long> expiry;
 vector<string> keys;
 
+struct ReplicationState {
+    string role;              // "master" or "slave"
+  
+};
+ReplicationState replicationState;
+
+void initializeReplicationState(string server_role) {
+    replicationState.role = server_role; // Default role
+}
 
 long long getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -164,6 +173,18 @@ string RespParser(istream &input) {
           output += add;
         }
        }
+     }
+     else if(command == "info")
+     {
+      string config_info = data[1];
+      transform(config_info.begin(), config_info.end(), config_info.begin(), ::tolower);
+
+      if(config_info == "replication")
+      {
+        string role = replicationState.role;
+        output = "$" + to_string(5+role.length()) + "\r\n" + "role:" + role + "\r\n";
+        
+      }
      }
     
     return output;
@@ -311,6 +332,7 @@ int main(int argc, char **argv) {
   config["dbfilename"] = "dump.rdb";
   bool has_rdb = false;
   int port_number = 6379;
+  string server_role = "master";
     
     // Process command line args
     for (int i = 1; i < argc - 1; i += 2) {
@@ -325,6 +347,7 @@ int main(int argc, char **argv) {
             has_rdb = true;
         }
         else if(flag == "--port") port_number = stoi(value);
+        else if (flag == "--replicaof") server_role = slave();
     }
 
     if(has_rdb)
@@ -333,6 +356,8 @@ int main(int argc, char **argv) {
       cout << "here" << endl;
       keys = parseRDB(rdbFile);
     }
+
+    initializeReplicationState(server_role);
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
@@ -380,6 +405,7 @@ int main(int argc, char **argv) {
         cerr << "Select error\n";
         break;
     }
+
 
     for(int fd=0; fd <= max_fd;fd++)
     {
