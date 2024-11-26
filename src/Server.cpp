@@ -188,9 +188,10 @@ string RespParser(istream &input) {
 
         if(command_info == "replication")
         {
-          output = "$" + to_string(5+replicationState.role.length()) + "\r\n" + "role:" + replicationState.role + "\r\n";
+          output = "role:" + replicationState.role + "\r\n";
           output += "master_repl_offset:" + replicationState.master_repl_offset + "\r\n";
-          output += "master_replid:" + replicationState.master_replid + "\r\n";
+          output += "master_replid:" + replicationState.master_replid;
+          output = "$" + to_string(output.length()) + "\r\n" + output;
         }
      }
     
