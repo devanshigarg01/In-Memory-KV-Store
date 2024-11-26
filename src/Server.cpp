@@ -25,7 +25,7 @@ vector<string> keys;
 
 struct ReplicationState {
     string role; // master or slave
-    string master_repl_offset;
+    string master_replid;
     string master_repl_offset;
 };
 
@@ -34,7 +34,7 @@ ReplicationState replicationState;
 void initializeReplicationState(string server_role)
 {
   replicationState.role = server_role;
-  replicationState.master_repl_offset = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+  replicationState.master_replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
   replicationState.master_repl_offset = "0";
 
 }
