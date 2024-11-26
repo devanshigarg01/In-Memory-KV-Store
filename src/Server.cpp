@@ -277,7 +277,6 @@ vector<string>parseRDB(const string &filename)
         if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
             int expireLength = (type == 0xFC) ? 8 : 4;
             flag_expiry = true;
-            string expiry_time_str = readString(file, expireLength);
             
             if (expireLength == 4) {
               uint32_t expiry_time_seconds;
