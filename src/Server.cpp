@@ -23,6 +23,16 @@ unordered_map<string,string> mp;
 unordered_map<string,uint64_t> expiry;
 vector<string> keys;
 
+struct ReplicationState {
+    string role; // master or slave
+};
+
+ReplicationState replicationState;
+
+void initializeReplicationState(string server_role)
+{
+  replicationState.role = server_role;
+}
 
 uint64_t getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -165,6 +175,16 @@ string RespParser(istream &input) {
           output += add;
         }
        }
+     }
+     else if(command == "info")
+     {
+        string command_info = data[1];
+        transform(command_info.begin(), command_info.end(), command_info.begin(), ::tolower);
+
+        if(command_info == "replication")
+        {
+          output = "$" + to_string(5+replicationState.role.length()) + "\r\n" + "role:" + replicationState.role + "\r\n";
+        }
      }
     
     return output;
@@ -333,28 +353,31 @@ int main(int argc, char **argv) {
   config["dbfilename"] = "dump.rdb";
   bool has_rdb = false;
   int port_number = 6379;
-    
-    // Process command line args
-    for (int i = 1; i < argc - 1; i += 2) {
-        string flag = argv[i];
-        string value = argv[i + 1];
-        
-        if (flag == "--dir") {
-            config["dir"] = value;
-        }
-        else if (flag == "--dbfilename") {
-            config["dbfilename"] = value;
-            has_rdb = true;
-        }
-        else if(flag == "--port") port_number = stoi(value);
-    }
+  string server_role = "master";
+  // Process command line args
+  for (int i = 1; i < argc - 1; i += 2) {
+      string flag = argv[i];
+      string value = argv[i + 1];
+      
+      if (flag == "--dir") {
+          config["dir"] = value;
+      }
+      else if (flag == "--dbfilename") {
+          config["dbfilename"] = value;
+          has_rdb = true;
+      }
+      else if(flag == "--port") port_number = stoi(value);
+      else if(flag == "--replicaof") server_role = "slave";
+  }
 
-    if(has_rdb)
-    {
-      string rdbFile = config["dir"] + "/" + config["dbfilename"];
-      cout << "here" << endl;
-      keys = parseRDB(rdbFile);
-    }
+  if(has_rdb)
+  {
+    string rdbFile = config["dir"] + "/" + config["dbfilename"];
+    cout << "here" << endl;
+    keys = parseRDB(rdbFile);
+  }
+
+  initializeReplicationState(server_role);
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
