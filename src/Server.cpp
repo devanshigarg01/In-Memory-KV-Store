@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
             has_rdb = true;
         }
         else if(flag == "--port") port_number = stoi(value);
-        else if (flag == "--replicaof") server_role = slave();
+        else if (flag == "--replicaof") server_role = "slave";
     }
 
     if(has_rdb)
