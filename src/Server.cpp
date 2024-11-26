@@ -291,9 +291,6 @@ vector<string>parseRDB(const string &filename)
               std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
             }
         }
-            file.ignore(expireLength);  
-            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
-        }
 
 
 
@@ -318,8 +315,7 @@ vector<string>parseRDB(const string &filename)
         cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
         break;
     }
-}
-
+  }
   
   file.close();
   return result;
