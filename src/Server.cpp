@@ -14,25 +14,17 @@
 #include <ctime>
 #include <chrono>
 #include <fstream>
+#include <cstdint>
 using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, string> config;
 unordered_map<string,string> mp;
-unordered_map<string,long long> expiry;
+unordered_map<string,uint64_t> expiry;
 vector<string> keys;
 
-struct ReplicationState {
-    string role;              // "master" or "slave"
-  
-};
-ReplicationState replicationState;
 
-void initializeReplicationState(string server_role) {
-    replicationState.role = server_role; // Default role
-}
-
-long long getCurrentTime() {
+uint64_t getCurrentTime() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
@@ -110,7 +102,7 @@ string RespParser(istream &input) {
             if (command_expiry == "px")
             {
                string et = data[4];
-               long long expiry_time = getCurrentTime() + stoll(et);
+               uint64_t expiry_time = getCurrentTime() + stoll(et);
                expiry[key] = expiry_time; 
             }
         }
@@ -173,18 +165,6 @@ string RespParser(istream &input) {
           output += add;
         }
        }
-     }
-     else if(command == "info")
-     {
-      string config_info = data[1];
-      transform(config_info.begin(), config_info.end(), config_info.begin(), ::tolower);
-
-      if(config_info == "replication")
-      {
-        string role = replicationState.role;
-        output = "$" + to_string(5+role.length()) + "\r\n" + "role:" + role + "\r\n";
-        
-      }
      }
     
     return output;
@@ -291,7 +271,33 @@ vector<string>parseRDB(const string &filename)
             continue;
         }
 
-        if (type == 0x00) {  // String key-value pair
+        int flag_expiry = false;
+        uint64_t expiry_time_milliseconds;
+        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
+            int expireLength = (type == 0xFC) ? 8 : 4;
+            file.read(reinterpret_cast<char *>(&type), 1);
+            flag_expiry = true;
+            string expiry_time_str = readString(file, expireLength);
+            
+            if (expireLength == 4) {
+              uint32_t expiry_time_seconds;
+              file.read(reinterpret_cast<char *>(&expiry_time_seconds), sizeof(expiry_time_seconds));
+              
+              expiry_time_milliseconds = static_cast<uint64_t>(expiry_time_seconds) * 1000;
+              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
+            } 
+            else if (expireLength == 8) {
+              file.read(reinterpret_cast<char *>(&expiry_time_milliseconds), sizeof(expiry_time_milliseconds));
+              std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
+            }
+        }
+            file.ignore(expireLength);  
+            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
+        }
+
+
+
+         if (type == 0x00) {  // String key-value pair
             int keyLength = readLength(file);
             string key = readString(file, keyLength);
 
@@ -302,15 +308,12 @@ vector<string>parseRDB(const string &filename)
             mp[key] = value;
             cout << "Key: " << key << ", Value: " << value << endl;
             result.push_back(key); 
+
+            if (flag_expiry) expiry[key] = expiry_time_milliseconds;
             continue;
         }
 
-        if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
-            int expireLength = (type == 0xFC) ? 8 : 4;
-            file.ignore(expireLength);  
-            cout << "Skipped expiry timestamp of length: " << expireLength << endl;
-            continue;
-        }
+
 
         cerr << "Unknown type encountered: " << static_cast<int>(type) << "\n";
         break;
@@ -332,7 +335,6 @@ int main(int argc, char **argv) {
   config["dbfilename"] = "dump.rdb";
   bool has_rdb = false;
   int port_number = 6379;
-  string server_role = "master";
     
     // Process command line args
     for (int i = 1; i < argc - 1; i += 2) {
@@ -347,7 +349,6 @@ int main(int argc, char **argv) {
             has_rdb = true;
         }
         else if(flag == "--port") port_number = stoi(value);
-        else if (flag == "--replicaof") server_role = "slave";
     }
 
     if(has_rdb)
@@ -356,8 +357,6 @@ int main(int argc, char **argv) {
       cout << "here" << endl;
       keys = parseRDB(rdbFile);
     }
-
-    initializeReplicationState(server_role);
   
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
@@ -405,7 +404,6 @@ int main(int argc, char **argv) {
         cerr << "Select error\n";
         break;
     }
-
 
     for(int fd=0; fd <= max_fd;fd++)
     {
