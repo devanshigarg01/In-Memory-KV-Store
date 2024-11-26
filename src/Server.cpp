@@ -273,9 +273,9 @@ vector<string>parseRDB(const string &filename)
 
         int flag_expiry = false;
         uint64_t expiry_time_milliseconds;
+        cout << static_cast<int>(type) << endl;
         if (type == 0xFC || type == 0xFD) {  // Expiry timestamps
             int expireLength = (type == 0xFC) ? 8 : 4;
-            file.read(reinterpret_cast<char *>(&type), 1);
             flag_expiry = true;
             string expiry_time_str = readString(file, expireLength);
             
@@ -290,6 +290,7 @@ vector<string>parseRDB(const string &filename)
               file.read(reinterpret_cast<char *>(&expiry_time_milliseconds), sizeof(expiry_time_milliseconds));
               std::cout << "Expiry time (ms): " << expiry_time_milliseconds << std::endl;
             }
+
             file.read(reinterpret_cast<char *>(&type), 1);
         }
 
