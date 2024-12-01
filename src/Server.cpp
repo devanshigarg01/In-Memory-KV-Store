@@ -352,6 +352,11 @@ vector<string>parseRDB(const string &filename)
   return result;
 }
 
+void ReplicaServer(int port)
+{
+    return ;
+}
+
 int main(int argc, char **argv) {
   // Flush after every cout / cerr
   cout << unitbuf;
