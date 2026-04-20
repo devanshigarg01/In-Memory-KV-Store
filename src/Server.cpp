@@ -517,34 +517,30 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
                       "\r\n" + channel_name + "\r\n:" + to_string(count) + "\r\n";
         }
     } else if (command == "unsubscribe") {
-        vector<string> unsubscribeOutput;
         cout << "unsubscribe" << data.size() << endl;
+        output = "";
         if (data.size() == 1) {
             for (auto it = curr_client.channelSet.begin();
                  it != curr_client.channelSet.end();) {
-                auto channel = *it;  // Capture the channel before erasing
+                auto channel = *it;
                 pubsub_channels[channel].erase(curr_client.client_fd);
-                it = curr_client.channelSet.erase(
-                    it);  // Erase safely and move the iterator forward
-                unsubscribeOutput.push_back("unsubscribe");
-                unsubscribeOutput.push_back(channel);
+                it = curr_client.channelSet.erase(it);
+                int remaining = curr_client.channelSet.size() + curr_client.patternSet.size();
+                output += "*3\r\n$11\r\nunsubscribe\r\n$" + to_string(channel.size()) +
+                          "\r\n" + channel + "\r\n:" + to_string(remaining) + "\r\n";
             }
-
         } else {
             for (int i = 1; i < data.size(); i++) {
                 string unsubscribe_channel = data[i];
-                transform(unsubscribe_channel.begin(),
-                          unsubscribe_channel.end(),
+                transform(unsubscribe_channel.begin(), unsubscribe_channel.end(),
                           unsubscribe_channel.begin(), ::tolower);
-                pubsub_channels[unsubscribe_channel].erase(
-                    curr_client.client_fd);
+                pubsub_channels[unsubscribe_channel].erase(curr_client.client_fd);
                 curr_client.channelSet.erase(unsubscribe_channel);
-                unsubscribeOutput.push_back("unsubscribe");
-                unsubscribeOutput.push_back(unsubscribe_channel);
+                int remaining = curr_client.channelSet.size() + curr_client.patternSet.size();
+                output += "*3\r\n$11\r\nunsubscribe\r\n$" + to_string(unsubscribe_channel.size()) +
+                          "\r\n" + unsubscribe_channel + "\r\n:" + to_string(remaining) + "\r\n";
             }
         }
-
-        output = writeBulkString(unsubscribeOutput);
     } else if (command == "publish") {
         string publish_channel = data[1];
         string publish_message = data[2];
