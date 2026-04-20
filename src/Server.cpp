@@ -456,7 +456,8 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             if (curr_client.clientMultiQueue.size() == 0)
                 output = "*0\r\n";
             else {
-                string exec_output = "";
+                int exec_count = curr_client.clientMultiQueue.size();
+                string exec_output = "*" + to_string(exec_count) + "\r\n";
                 while (!curr_client.clientMultiQueue.empty()) {
                     cout << "here" << endl;
                     vector<string> queued_input =
