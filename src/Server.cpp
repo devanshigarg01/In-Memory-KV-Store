@@ -484,7 +484,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             output = "+OK\r\n";
         }
     } else if (command == "subscribe") {
-        vector<string> subscribeOutput;
+        output = "";
         for (int i = 1; i < data.size(); i++) {
             string channel_name = data[i];
             transform(channel_name.begin(), channel_name.end(),
@@ -492,15 +492,11 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             cout << "channel " << channel_name << endl;
             pubsub_channels[channel_name].insert(curr_client.client_fd);
             curr_client.channelSet.insert(channel_name);
-            subscribeOutput.push_back("subscribe");
-            subscribeOutput.push_back(channel_name);
-            cout << "pubsub " << channel_name
-                 << pubsub_channels[channel_name].size() << endl;
-            subscribeOutput.push_back(to_string(pubsub_channels[channel_name].size()));
+            int count = curr_client.channelSet.size();
+            cout << "pubsub " << channel_name << count << endl;
+            output += "*3\r\n$9\r\nsubscribe\r\n$" + to_string(channel_name.size()) +
+                      "\r\n" + channel_name + "\r\n:" + to_string(count) + "\r\n";
         }
-        
-
-        output = writeBulkString(subscribeOutput);
     } else if (command == "unsubscribe") {
         vector<string> unsubscribeOutput;
         cout << "unsubscribe" << data.size() << endl;
