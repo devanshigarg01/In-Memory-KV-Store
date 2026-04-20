@@ -361,7 +361,60 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
 
-        output = ":" + to_string(slavePortList.size()) + "\r\n";
+        if (replicaFdList.empty() || replicationState.master_repl_offset == 0) {
+            // No writes propagated yet — all replicas are up to date
+            output = ":" + to_string(replicaFdList.size()) + "\r\n";
+        } else {
+            // Send REPLCONF GETACK * to all replicas
+            string getack_cmd = "*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
+            for (auto rfd : replicaFdList) {
+                send(rfd, getack_cmd.c_str(), getack_cmd.length(), 0);
+            }
+
+            int ackCount = 0;
+            auto start = steady_clock::now();
+
+            // Poll replicas for ACK responses until timeout or enough acks
+            while (ackCount < numReplicaforWait) {
+                auto elapsed = duration_cast<milliseconds>(steady_clock::now() - start).count();
+                if (elapsed >= waitTimeout) break;
+
+                long long remaining = waitTimeout - elapsed;
+
+                fd_set readfds;
+                FD_ZERO(&readfds);
+                int maxfd = 0;
+                for (auto rfd : replicaFdList) {
+                    FD_SET(rfd, &readfds);
+                    if (rfd > maxfd) maxfd = rfd;
+                }
+
+                struct timeval tv;
+                tv.tv_sec = remaining / 1000;
+                tv.tv_usec = (remaining % 1000) * 1000;
+
+                int ready = select(maxfd + 1, &readfds, nullptr, nullptr, &tv);
+                if (ready <= 0) break;
+
+                for (auto rfd : replicaFdList) {
+                    if (FD_ISSET(rfd, &readfds)) {
+                        char buf[256];
+                        int n = recv(rfd, buf, sizeof(buf) - 1, 0);
+                        if (n > 0) {
+                            buf[n] = '\0';
+                            // Any REPLCONF ACK response counts as an ack
+                            string resp(buf, n);
+                            if (resp.find("REPLCONF") != string::npos ||
+                                resp.find("ACK") != string::npos) {
+                                ackCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            output = ":" + to_string(ackCount) + "\r\n";
+        }
     } else if (command == "incr") {
         string incr_key = data[1];
 
