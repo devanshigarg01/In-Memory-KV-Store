@@ -40,6 +40,7 @@ vector<int> slavePortList;
 vector<int> replicaFdList;
 unordered_map<string, set<int>> pubsub_channels;
 unordered_map<string, set<int>> pubsub_patterns;
+set<int> masterFds;  // fds from which we receive as a replica (no response sent)
 
 struct ClientState {
     int client_fd;
@@ -818,14 +819,16 @@ int ReplicaServer(int master_port, int slave_port) {
 
     std::cout << "Connected to the master server\n";
 
-    // Send commands and receive responses
-
     handShake(replicaSocket, slave_port);
 
-    // Close the socket
-    close(replicaSocket);
+    // Drain the RDB file sent by master: read "$<len>\r\n<data>"
+    char rdb_buf[4096] = {0};
+    ssize_t n = recv(replicaSocket, rdb_buf, sizeof(rdb_buf) - 1, 0);
+    if (n > 0) {
+        std::cout << "Received RDB data (" << n << " bytes)\n";
+    }
 
-    return 0;
+    return replicaSocket;
 }
 
 int main(int argc, char** argv) {
@@ -869,8 +872,9 @@ int main(int argc, char** argv) {
 
     initializeReplicationState(server_role);
 
+    int master_fd = -1;
     if (server_role == "slave") {
-        int replica_flag = ReplicaServer(master_port, port_number);
+        master_fd = ReplicaServer(master_port, port_number);
     }
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -909,6 +913,14 @@ int main(int argc, char** argv) {
     FD_ZERO(&active_fds);
     FD_SET(server_fd, &active_fds);
     int max_fd = server_fd;
+
+    if (master_fd >= 0) {
+        FD_SET(master_fd, &active_fds);
+        if (master_fd > max_fd) max_fd = master_fd;
+        masterFds.insert(master_fd);
+        ClientState cs;
+        client_map[master_fd] = initializeClientState(master_fd, cs);
+    }
 
     // Parser parser;
 
@@ -963,7 +975,7 @@ int main(int argc, char** argv) {
                     auto [response, response_flag] =
                         RespParser(input, curr_client);
                     cout << response << endl;
-                    if (response_flag)
+                    if (response_flag && masterFds.find(fd) == masterFds.end())
                         send(fd, response.c_str(), response.size(), 0);
                 }
             }
