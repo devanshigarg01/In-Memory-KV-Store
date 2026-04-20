@@ -496,7 +496,9 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             subscribeOutput.push_back(channel_name);
             cout << "pubsub " << channel_name
                  << pubsub_channels[channel_name].size() << endl;
+            subscribeOutput.push_back(to_string(pubsub_channels[channel_name].size()));
         }
+        
 
         output = writeBulkString(subscribeOutput);
     } else if (command == "unsubscribe") {
