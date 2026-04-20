@@ -367,7 +367,7 @@ pair<string,bool> RespParser(istream &input, ClientState &curr_client) {
      }
      else if(command == "keys")
      {
-       string command_keys = data[1];
+       string command_keys = data[
        transform(command_keys.begin(), command_keys.end(), command_keys.begin(), ::tolower);
 
        if(command_keys == "*")
@@ -391,6 +391,8 @@ pair<string,bool> RespParser(istream &input, ClientState &curr_client) {
                         "master_repl_offset:" + to_string(replicationState.master_repl_offset) + "\r\n" +
                         "master_replid:" + replicationState.master_replid + "\r\n";
           output = "$" + to_string(add.length()) + "\r\n" + add;
+          cout << "debug statement" << endl;
+          cout << output << endl;
         }
      }
      else if(command == "replconf")
