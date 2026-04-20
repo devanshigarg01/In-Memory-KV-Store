@@ -779,53 +779,75 @@ void sendReplicaACK() {
     }
 }
 
-void handShake(int replicaSocket, int slave_port) {
-    sendCommand(replicaSocket, "*1\r\n$4\r\nPING\r\n");
-    string port_command = "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" +
-                          to_string(to_string(slave_port).length()) + "\r\n" +
-                          to_string(slave_port) + "\r\n";
-    sendCommand(replicaSocket, port_command);
-    sendCommand(replicaSocket,
-                "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
-    sendCommand(replicaSocket, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+// Read exactly n bytes from socket into buf
+static bool recvExact(int sock, char* buf, size_t n) {
+    size_t received = 0;
+    while (received < n) {
+        ssize_t r = recv(sock, buf + received, n - received, 0);
+        if (r <= 0) return false;
+        received += r;
+    }
+    return true;
+}
+
+// Read a line (ending with \r\n) from socket
+static string recvLine(int sock) {
+    string line;
+    char c;
+    while (true) {
+        ssize_t r = recv(sock, &c, 1, 0);
+        if (r <= 0) break;
+        if (c == '\n' && !line.empty() && line.back() == '\r') {
+            line.pop_back();
+            break;
+        }
+        line += c;
+    }
+    return line;
 }
 
 int ReplicaServer(int master_port, int slave_port) {
-    // Create socket
     int replicaSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (replicaSocket < 0) {
-        perror("Socket creation failed");
-        return 1;
-    }
+    if (replicaSocket < 0) { perror("Socket creation failed"); return -1; }
 
-    // Configure server address
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(master_port);
-
     if (inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr) <= 0) {
-        perror("Invalid address");
-        close(replicaSocket);
-        return 1;
+        perror("Invalid address"); close(replicaSocket); return -1;
     }
-
-    // Connect to the master server
-    if (connect(replicaSocket, (struct sockaddr*)&serverAddress,
-                sizeof(serverAddress)) < 0) {
-        perror("Connection failed");
-        close(replicaSocket);
-        return 1;
+    if (connect(replicaSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+        perror("Connection failed"); close(replicaSocket); return -1;
     }
-
     std::cout << "Connected to the master server\n";
 
-    handShake(replicaSocket, slave_port);
+    // PING
+    sendCommand(replicaSocket, "*1\r\n$4\r\nPING\r\n");
 
-    // Drain the RDB file sent by master: read "$<len>\r\n<data>"
-    char rdb_buf[4096] = {0};
-    ssize_t n = recv(replicaSocket, rdb_buf, sizeof(rdb_buf) - 1, 0);
-    if (n > 0) {
-        std::cout << "Received RDB data (" << n << " bytes)\n";
+    // REPLCONF listening-port
+    string port_str = to_string(slave_port);
+    string port_cmd = "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" +
+                      to_string(port_str.length()) + "\r\n" + port_str + "\r\n";
+    sendCommand(replicaSocket, port_cmd);
+
+    // REPLCONF capa psync2
+    sendCommand(replicaSocket, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+
+    // PSYNC — send then manually read FULLRESYNC line + RDB bulk data
+    string psync_cmd = "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n";
+    send(replicaSocket, psync_cmd.c_str(), psync_cmd.length(), 0);
+
+    // Read +FULLRESYNC ... line
+    string fullresync = recvLine(replicaSocket);
+    std::cout << "Received: " << fullresync << "\n";
+
+    // Read RDB: "$<len>\r\n<data>"
+    string rdb_header = recvLine(replicaSocket);
+    if (!rdb_header.empty() && rdb_header[0] == '$') {
+        int rdb_len = stoi(rdb_header.substr(1));
+        vector<char> rdb_data(rdb_len);
+        recvExact(replicaSocket, rdb_data.data(), rdb_len);
+        std::cout << "Received RDB (" << rdb_len << " bytes)\n";
     }
 
     return replicaSocket;
