@@ -46,6 +46,7 @@ set<int>
 struct ClientState {
     int client_fd;
     bool clientQueueFlag;
+    bool pubsubMode = false;
     queue<vector<string>> clientMultiQueue;
     set<string> channelSet;
     set<string> patternSet;
@@ -239,6 +240,16 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         output = "+QUEUED\r\n";
         return {output, response_flag};
     }
+
+    static const set<string> pubsub_allowed = {
+        "subscribe", "unsubscribe", "psubscribe", "punsubscribe", "ping", "quit", "reset"
+    };
+    bool in_pubsub_mode = curr_client.pubsubMode;
+    if (in_pubsub_mode && pubsub_allowed.find(command) == pubsub_allowed.end()) {
+        output = "-ERR Can't execute '" + data[0] + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context\r\n";
+        return {output, response_flag};
+    }
+
     if (command == "echo") {
         if (data.size() > 2) {
             output = "*" + to_string(data.size()) + "\r\n";
@@ -251,6 +262,10 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             output =
                 "$" + to_string(data[1].length()) + "\r\n" + data[1] + "\r\n";
         }
+    } else if (command == "quit") {
+        curr_client.pubsubMode = false;
+        output = "+OK\r\n";
+        response_flag = false;
     } else if (command == "ping") {
         cout << "pong" << endl;
         output = "+PONG\r\n";
@@ -484,6 +499,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             output = "+OK\r\n";
         }
     } else if (command == "subscribe") {
+        curr_client.pubsubMode = true;
         output = "";
         for (int i = 1; i < data.size(); i++) {
             string channel_name = data[i];
@@ -572,6 +588,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             output = outputNumsub;
         }
     } else if (command == "psubscribe") {
+        curr_client.pubsubMode = true;
         vector<string> outputPsubscribe;
         for (int i = 1; i < data.size(); i++) {
             string pattern = data[i];
