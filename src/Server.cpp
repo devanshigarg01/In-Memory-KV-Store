@@ -225,12 +225,8 @@ void sendPublishMessage(string publish_channel, string publish_message,
 }
 
 pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
-    bool response_flag;
+    bool response_flag = true;
     string server_role = replicationState.role;
-    if (server_role == "master")
-        response_flag = true;
-    else if (server_role == "slave")
-        response_flag = false;
     string word;
     getline(input, word);
     // cout << "word_0" << word[0] << endl;
