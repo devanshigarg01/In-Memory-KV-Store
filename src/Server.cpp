@@ -341,9 +341,9 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             }
         }
     } else if (command == "keys") {
-        string command_keys =
-            data[1] transform(command_keys.begin(), command_keys.end(),
-                              command_keys.begin(), ::tolower);
+        string command_keys = data[1];
+        transform(command_keys.begin(), command_keys.end(),
+                  command_keys.begin(), ::tolower);
 
         if (command_keys == "*") {
             output = "*" + to_string(keys.size()) + "\r\n";
