@@ -231,9 +231,6 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
 
     string command = data[0];
     transform(command.begin(), command.end(), command.begin(), ::tolower);
-    if (server_role == "slave" && command != "replconf")
-        replicationState.master_repl_offset += totalBytes;
-    cout << command << " " << totalBytes << endl;
     string output;
 
     if (command != "exec" && command != "discard" && command != "multi" &&
@@ -564,6 +561,10 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
 
         output = writeBulkString(punsubscribeOutput);
     }
+
+    if (server_role == "slave")
+        replicationState.master_repl_offset += totalBytes;
+    cout << command << " " << totalBytes << endl;
 
     propogate(data, server_role);
     return {output, response_flag};
@@ -1014,7 +1015,10 @@ int main(int argc, char** argv) {
                             auto [response, response_flag] =
                                 RespParser(input, curr_client);
                             cout << response << endl;
-                            bool should_reply = response_flag && (!is_master || (!response.empty() && response[0] == '*'));
+                            bool should_reply =
+                                response_flag &&
+                                (!is_master ||
+                                 (!response.empty() && response[0] == '*'));
                             if (should_reply)
                                 send(fd, response.c_str(), response.size(), 0);
                         } catch (...) {
