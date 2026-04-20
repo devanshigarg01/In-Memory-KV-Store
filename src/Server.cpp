@@ -990,16 +990,22 @@ int main(int argc, char** argv) {
                         continue;
                     }
 
-                    stringstream input;
-                    input << buffer;
+                    buffer[bytes_rec] = '\0';
+                    stringstream input(string(buffer, bytes_rec));
                     cout << "recieved" << endl;
                     ClientState& curr_client = client_map[fd];
-                    // cout << "command from " << fd << endl;
-                    auto [response, response_flag] =
-                        RespParser(input, curr_client);
-                    cout << response << endl;
-                    if (response_flag && masterFds.find(fd) == masterFds.end())
-                        send(fd, response.c_str(), response.size(), 0);
+                    bool is_master = masterFds.find(fd) != masterFds.end();
+                    while (input.peek() == '*') {
+                        try {
+                            auto [response, response_flag] =
+                                RespParser(input, curr_client);
+                            cout << response << endl;
+                            if (response_flag && !is_master)
+                                send(fd, response.c_str(), response.size(), 0);
+                        } catch (...) {
+                            break;
+                        }
+                    }
                 }
             }
         }
