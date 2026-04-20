@@ -379,13 +379,9 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         }
 
     } else if (command == "psync") {
-        string add = "FULLRESYNC\r\n" + replicationState.master_replid +
-                     "\r\n" + to_string(replicationState.master_repl_offset) +
-                     "\r\n";
-        output = "$" + to_string(add.length()) + "\r\n" + add;
-
-        // output += "$" + std::to_string(empty_rdb.length()) + "\r\n" +
-        // empty_rdb;
+        output = "+FULLRESYNC " + replicationState.master_replid + " " +
+                 to_string(replicationState.master_repl_offset) + "\r\n";
+        output += "$" + to_string(empty_rdb.length()) + "\r\n" + empty_rdb;
     } else if (command == "wait") {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
