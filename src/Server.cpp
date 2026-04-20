@@ -384,7 +384,8 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
                      "\r\n";
         output = "$" + to_string(add.length()) + "\r\n" + add;
 
-        output += "$" + std::to_string(empty_rdb.length()) + "\r\n" + empty_rdb;
+        // output += "$" + std::to_string(empty_rdb.length()) + "\r\n" +
+        // empty_rdb;
     } else if (command == "wait") {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
