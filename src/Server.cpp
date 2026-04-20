@@ -1014,7 +1014,8 @@ int main(int argc, char** argv) {
                             auto [response, response_flag] =
                                 RespParser(input, curr_client);
                             cout << response << endl;
-                            if (response_flag && !is_master)
+                            bool should_reply = response_flag && (!is_master || (!response.empty() && response[0] == '*'));
+                            if (should_reply)
                                 send(fd, response.c_str(), response.size(), 0);
                         } catch (...) {
                             break;
