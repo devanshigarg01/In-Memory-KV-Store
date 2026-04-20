@@ -362,8 +362,8 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
 
-        if (replicaFdList.empty()) {
-            // No replicas connected
+        if (replicaFdList.empty() || replicationState.master_repl_offset == 0) {
+            // No replicas or no writes yet — all replicas are up to date
             output = ":" + to_string(replicaFdList.size()) + "\r\n";
         } else {
             // Send REPLCONF GETACK * to all replicas
