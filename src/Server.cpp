@@ -222,13 +222,12 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         string arg = parseBulkString(input);
         cout << arg << endl;
         data.push_back(arg);
-        // Calculate bytes for this argument
-        totalBytes += arg.size();  // Length of the argument
-        totalBytes += 6;           // CRLF after the argument
+        // Calculate bytes: $<len>\r\n<arg>\r\n
+        totalBytes += 1 + to_string(arg.size()).length() + 2 + arg.size() + 2;
     }
 
-    // Add bytes for RESP argument count line
-    totalBytes += 4;  // Length of "*<numArgs>\r\n"
+    // Add bytes for *<numArgs>\r\n
+    totalBytes += 1 + to_string(numArgs).length() + 2;
 
     string command = data[0];
     transform(command.begin(), command.end(), command.begin(), ::tolower);
