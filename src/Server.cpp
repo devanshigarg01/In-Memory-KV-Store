@@ -229,10 +229,10 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
     // Add bytes for RESP argument count line
     totalBytes += 4;  // Length of "*<numArgs>\r\n"
 
-    if (server_role == "slave")
-        replicationState.master_repl_offset += totalBytes;
     string command = data[0];
     transform(command.begin(), command.end(), command.begin(), ::tolower);
+    if (server_role == "slave" && command != "replconf")
+        replicationState.master_repl_offset += totalBytes;
     cout << command << " " << totalBytes << endl;
     string output;
 
