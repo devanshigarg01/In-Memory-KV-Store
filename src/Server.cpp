@@ -37,6 +37,7 @@ const string empty_rdb =
     "\x2d\x62\x61\x73\x65\xc0\x00\xff\xf0\x6e\x3b\xfe\xc0\xff\x5a\xa2";
 set<string> write_commands = {"set", "del"};
 vector<int> slavePortList;
+vector<int> replicaFdList;
 unordered_map<string, set<int>> pubsub_channels;
 unordered_map<string, set<int>> pubsub_patterns;
 
@@ -137,38 +138,8 @@ void propogate(vector<string> data, string server_role) {
 
     if (write_commands.find(command) != write_commands.end()) {
         string command_string = writeBulkString(data);
-        // cout << "propogated command " << command_string << endl;
-
-        for (auto slavePort : slavePortList) {
-            int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-            if (socket_fd < 0) {
-                perror("Socket creation failed");
-                return;
-            }
-
-            // Configure server address
-            sockaddr_in serverAddress{};
-            serverAddress.sin_family = AF_INET;
-            serverAddress.sin_port = htons(slavePort);
-
-            if (inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr) <= 0) {
-                perror("Invalid address");
-                close(socket_fd);
-                return;
-            }
-
-            // Connect to the master server
-            if (connect(socket_fd, (struct sockaddr*)&serverAddress,
-                        sizeof(serverAddress)) < 0) {
-                perror("Connection failed");
-                close(socket_fd);
-                return;
-            }
-
-            std::cout << "Connected to the slave server at " << slavePort
-                      << endl;
-            send(socket_fd, command_string.c_str(), command_string.length(), 0);
-            close(socket_fd);
+        for (auto replica_fd : replicaFdList) {
+            send(replica_fd, command_string.c_str(), command_string.length(), 0);
         }
     }
 
@@ -382,6 +353,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         output = "+FULLRESYNC " + replicationState.master_replid + " " +
                  to_string(replicationState.master_repl_offset) + "\r\n";
         output += "$" + to_string(empty_rdb.length()) + "\r\n" + empty_rdb;
+        replicaFdList.push_back(curr_client.client_fd);
     } else if (command == "wait") {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
@@ -993,7 +965,6 @@ int main(int argc, char** argv) {
                     cout << response << endl;
                     if (response_flag)
                         send(fd, response.c_str(), response.size(), 0);
-                    sendReplicaACK();
                 }
             }
         }
