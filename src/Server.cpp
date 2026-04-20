@@ -364,7 +364,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
                 "master_repl_offset:" +
                 to_string(replicationState.master_repl_offset) + "\r\n" +
                 "master_replid:" + replicationState.master_replid + "\r\n";
-            output = "$" + to_string(add.length()) + "\r\n" + add;
+            output = "$" + to_string(add.length()) + "\r\n" + add + "\r\n";
             cout << "debug statement" << endl;
             cout << output << endl;
         }
