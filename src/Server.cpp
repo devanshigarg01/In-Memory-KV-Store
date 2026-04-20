@@ -268,7 +268,10 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         response_flag = false;
     } else if (command == "ping") {
         cout << "pong" << endl;
-        output = "+PONG\r\n";
+        if (curr_client.pubsubMode)
+            output = "*2\r\n$4\r\npong\r\n$0\r\n\r\n";
+        else
+            output = "+PONG\r\n";
     } else if (command == "set") {
         string key = data[1];
         string value = data[2];
