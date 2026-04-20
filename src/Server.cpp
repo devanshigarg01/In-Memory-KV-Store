@@ -40,7 +40,8 @@ vector<int> slavePortList;
 vector<int> replicaFdList;
 unordered_map<string, set<int>> pubsub_channels;
 unordered_map<string, set<int>> pubsub_patterns;
-set<int> masterFds;  // fds from which we receive as a replica (no response sent)
+set<int>
+    masterFds;  // fds from which we receive as a replica (no response sent)
 
 struct ClientState {
     int client_fd;
@@ -140,7 +141,8 @@ void propogate(vector<string> data, string server_role) {
     if (write_commands.find(command) != write_commands.end()) {
         string command_string = writeBulkString(data);
         for (auto replica_fd : replicaFdList) {
-            send(replica_fd, command_string.c_str(), command_string.length(), 0);
+            send(replica_fd, command_string.c_str(), command_string.length(),
+                 0);
         }
     }
 
@@ -348,6 +350,9 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             vector<string> output_data = {"REPLCONF", "ACK", offset};
             output = writeBulkString(output_data);
             response_flag = true;
+
+            cout << "Debug replconf" << endl;
+            cout << output << endl;
         }
 
     } else if (command == "psync") {
@@ -808,16 +813,24 @@ static string recvLine(int sock) {
 
 int ReplicaServer(int master_port, int slave_port) {
     int replicaSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (replicaSocket < 0) { perror("Socket creation failed"); return -1; }
+    if (replicaSocket < 0) {
+        perror("Socket creation failed");
+        return -1;
+    }
 
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(master_port);
     if (inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr) <= 0) {
-        perror("Invalid address"); close(replicaSocket); return -1;
+        perror("Invalid address");
+        close(replicaSocket);
+        return -1;
     }
-    if (connect(replicaSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
-        perror("Connection failed"); close(replicaSocket); return -1;
+    if (connect(replicaSocket, (struct sockaddr*)&serverAddress,
+                sizeof(serverAddress)) < 0) {
+        perror("Connection failed");
+        close(replicaSocket);
+        return -1;
     }
     std::cout << "Connected to the master server\n";
 
@@ -831,7 +844,8 @@ int ReplicaServer(int master_port, int slave_port) {
     sendCommand(replicaSocket, port_cmd);
 
     // REPLCONF capa psync2
-    sendCommand(replicaSocket, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+    sendCommand(replicaSocket,
+                "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
 
     // PSYNC — send then manually read FULLRESYNC line + RDB bulk data
     string psync_cmd = "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n";
