@@ -188,7 +188,7 @@ pair<bool, NumberType> isNumber(const string& input) {
 
 void sendPublishMessage(string publish_channel, string publish_message,
                         int client_fd) {
-    string response = "*2\r\n$" + to_string(publish_channel.size()) + "\r\n" +
+    string response = "*3\r\n$7\r\nmessage\r\n$" + to_string(publish_channel.size()) + "\r\n" +
                       publish_channel + "\r\n$" +
                       to_string(publish_message.size()) + "\r\n" +
                       publish_message + "\r\n";
