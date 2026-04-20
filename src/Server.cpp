@@ -144,6 +144,7 @@ void propogate(vector<string> data, string server_role) {
             send(replica_fd, command_string.c_str(), command_string.length(),
                  0);
         }
+        replicationState.master_repl_offset += command_string.length();
     }
 
     return;
@@ -361,8 +362,8 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         int numReplicaforWait = stoi(data[1]);
         long long waitTimeout = stoll(data[2]);
 
-        if (replicaFdList.empty() || replicationState.master_repl_offset == 0) {
-            // No writes propagated yet — all replicas are up to date
+        if (replicaFdList.empty()) {
+            // No replicas connected
             output = ":" + to_string(replicaFdList.size()) + "\r\n";
         } else {
             // Send REPLCONF GETACK * to all replicas
