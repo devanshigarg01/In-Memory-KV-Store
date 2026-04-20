@@ -978,33 +978,28 @@ int main(int argc, char** argv) {
                     // cout << "initiliazed " << new_client_fd << "size " <<
                     // client_map.size() << endl;
                 } else {
-                    char buffer[4096];
+                    char buffer[1024];
                     int bytes_rec = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
                     if (bytes_rec <= 0) {
                         cout << "closing client at " << fd << endl;
                         deleteClientPubsub(fd);
+                        masterFds.erase(fd);
                         close(fd);
                         FD_CLR(fd, &active_fds);
                         continue;
                     }
-                    buffer[bytes_rec] = '\0';
 
-                    stringstream input(string(buffer, bytes_rec));
+                    stringstream input;
+                    input << buffer;
                     cout << "recieved" << endl;
                     ClientState& curr_client = client_map[fd];
-                    bool is_master = masterFds.find(fd) != masterFds.end();
-                    while (input.peek() != EOF && input.good()) {
-                        try {
-                            auto [response, response_flag] =
-                                RespParser(input, curr_client);
-                            cout << response << endl;
-                            if (response_flag && !is_master)
-                                send(fd, response.c_str(), response.size(), 0);
-                        } catch (...) {
-                            break;
-                        }
-                    }
+                    // cout << "command from " << fd << endl;
+                    auto [response, response_flag] =
+                        RespParser(input, curr_client);
+                    cout << response << endl;
+                    if (response_flag && masterFds.find(fd) == masterFds.end())
+                        send(fd, response.c_str(), response.size(), 0);
                 }
             }
         }
