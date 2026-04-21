@@ -19,6 +19,7 @@
 #include "ClientState.h"
 #include "CommandHandler.h"
 #include "Globals.h"
+#include "PubSubManager.h"
 #include "RedisStore.h"
 #include "RespProtocol.h"
 
@@ -30,8 +31,6 @@ unordered_map<string, string> config;
 ReplicationState replicationState;
 vector<int> slavePortList;
 vector<int> replicaFdList;
-unordered_map<string, set<int>> pubsub_channels;
-unordered_map<string, set<int>> pubsub_patterns;
 set<int> masterFds;
 set<string> write_commands = {"set", "del"};
 const string empty_rdb =
@@ -57,10 +56,9 @@ static void initializeReplicationState(const string& role) {
     replicationState.master_repl_offset = 0;
 }
 
-static void deleteClientPubsub(int fd) {
+static void deleteClientPubsub(int fd, PubSubManager& pubsub) {
     ClientState& cs = client_map[fd];
-    for (auto& ch : cs.channelSet) pubsub_channels[ch].erase(fd);
-    for (auto& pat : cs.patternSet) pubsub_patterns[pat].erase(fd);
+    pubsub.removeClient(fd, cs);
     client_map.erase(fd);
 }
 
@@ -262,7 +260,8 @@ int main(int argc, char** argv) {
 
     initializeReplicationState(server_role);
 
-    CommandHandler handler(store);
+    PubSubManager pubsub;
+    CommandHandler handler(store, pubsub);
 
     int master_fd = -1;
     if (server_role == "slave")
@@ -315,7 +314,7 @@ int main(int argc, char** argv) {
                 char buffer[1024];
                 int bytes_rec = recv(fd, buffer, sizeof(buffer) - 1, 0);
                 if (bytes_rec <= 0) {
-                    deleteClientPubsub(fd);
+                    deleteClientPubsub(fd, pubsub);
                     masterFds.erase(fd);
                     close(fd);
                     FD_CLR(fd, &active_fds);

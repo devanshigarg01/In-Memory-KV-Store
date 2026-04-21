@@ -14,12 +14,14 @@
 #include <vector>
 
 #include "Globals.h"
+#include "PubSubManager.h"
 #include "RespProtocol.h"
 
 using namespace std;
 using namespace std::chrono;
 
-CommandHandler::CommandHandler(RedisStore& store) : store_(store) {}
+CommandHandler::CommandHandler(RedisStore& store, PubSubManager& pubsub)
+    : store_(store), pubsub_(pubsub) {}
 
 // ---------- dispatch ----------
 
@@ -270,115 +272,30 @@ string CommandHandler::handleDiscard(vector<string>& args, ClientState& c) {
 
 string CommandHandler::handleSubscribe(vector<string>& args, ClientState& c) {
     c.pubsubMode = true;
-    string out;
-    for (size_t i = 1; i < args.size(); i++) {
-        string ch = args[i];
-        transform(ch.begin(), ch.end(), ch.begin(), ::tolower);
-        pubsub_channels[ch].insert(c.client_fd);
-        c.channelSet.insert(ch);
-        int count = c.channelSet.size();
-        out += "*3\r\n$9\r\nsubscribe\r\n$" + to_string(ch.size()) + "\r\n" +
-               ch + "\r\n:" + to_string(count) + "\r\n";
-    }
-    return out;
+    return pubsub_.subscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
 string CommandHandler::handleUnsubscribe(vector<string>& args, ClientState& c) {
-    string out;
-    if (args.size() == 1) {
-        for (auto it = c.channelSet.begin(); it != c.channelSet.end();) {
-            auto ch = *it;
-            pubsub_channels[ch].erase(c.client_fd);
-            it = c.channelSet.erase(it);
-            int remaining = c.channelSet.size() + c.patternSet.size();
-            out += "*3\r\n$11\r\nunsubscribe\r\n$" + to_string(ch.size()) +
-                   "\r\n" + ch + "\r\n:" + to_string(remaining) + "\r\n";
-        }
-    } else {
-        for (size_t i = 1; i < args.size(); i++) {
-            string ch = args[i];
-            transform(ch.begin(), ch.end(), ch.begin(), ::tolower);
-            pubsub_channels[ch].erase(c.client_fd);
-            c.channelSet.erase(ch);
-            int remaining = c.channelSet.size() + c.patternSet.size();
-            out += "*3\r\n$11\r\nunsubscribe\r\n$" + to_string(ch.size()) +
-                   "\r\n" + ch + "\r\n:" + to_string(remaining) + "\r\n";
-        }
-    }
-    return out;
+    return pubsub_.unsubscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
 string CommandHandler::handlePublish(vector<string>& args, ClientState& c) {
-    string channel = args[1];
-    string message = args[2];
-    transform(channel.begin(), channel.end(), channel.begin(), ::tolower);
-
-    set<int> subscribers;
-    if (pubsub_channels.find(channel) != pubsub_channels.end())
-        subscribers = pubsub_channels[channel];
-
-    for (auto& [pattern, fds] : pubsub_patterns) {
-        if (fnmatch(pattern.c_str(), channel.c_str(), 0) == 0)
-            for (int fd : fds) subscribers.insert(fd);
-    }
-
-    string msg = "*3\r\n$7\r\nmessage\r\n$" + to_string(channel.size()) +
-                 "\r\n" + channel + "\r\n$" + to_string(message.size()) +
-                 "\r\n" + message + "\r\n";
-    for (int fd : subscribers)
-        send(fd, msg.c_str(), msg.size(), 0);
-
-    return ":" + to_string(subscribers.size()) + "\r\n";
+    return pubsub_.publish(args[1], args[2]);
 }
 
 string CommandHandler::handlePsubscribe(vector<string>& args, ClientState& c) {
     c.pubsubMode = true;
-    vector<string> out_parts;
-    for (size_t i = 1; i < args.size(); i++) {
-        string pat = args[i];
-        transform(pat.begin(), pat.end(), pat.begin(), ::tolower);
-        pubsub_patterns[pat].insert(c.client_fd);
-        c.patternSet.insert(pat);
-        out_parts.push_back("psubscribe");
-        out_parts.push_back(pat);
-    }
-    return RespProtocol::writeBulkString(out_parts);
+    return pubsub_.psubscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
 string CommandHandler::handlePunsubscribe(vector<string>& args, ClientState& c) {
-    vector<string> out_parts;
-    if (args.size() == 1) {
-        for (auto it = c.patternSet.begin(); it != c.patternSet.end();) {
-            auto pat = *it;
-            pubsub_patterns[pat].erase(c.client_fd);
-            it = c.patternSet.erase(it);
-            out_parts.push_back("punsubscribe");
-            out_parts.push_back(pat);
-        }
-    } else {
-        for (size_t i = 1; i < args.size(); i++) {
-            string pat = args[i];
-            transform(pat.begin(), pat.end(), pat.begin(), ::tolower);
-            pubsub_patterns[pat].erase(c.client_fd);
-            c.patternSet.erase(pat);
-            out_parts.push_back("punsubscribe");
-            out_parts.push_back(pat);
-        }
-    }
-    return RespProtocol::writeBulkString(out_parts);
+    return pubsub_.punsubscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
 string CommandHandler::handlePubsub(vector<string>& args, ClientState& c) {
     string sub = args[1];
     transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
-    if (sub == "numsub") {
-        string out;
-        for (size_t i = 2; i < args.size(); i++) {
-            string ch = args[i];
-            transform(ch.begin(), ch.end(), ch.begin(), ::tolower);
-            out += ":" + to_string(pubsub_channels[ch].size()) + "\r\n";
-        }
-        return out;
-    }
+    if (sub == "numsub")
+        return pubsub_.numsub({args.begin() + 2, args.end()});
     return "-ERR unknown subcommand\r\n";
 }

@@ -5,16 +5,18 @@
 #include <vector>
 
 #include "ClientState.h"
+#include "PubSubManager.h"
 #include "RedisStore.h"
 
 class CommandHandler {
 public:
-    explicit CommandHandler(RedisStore& store);
+    CommandHandler(RedisStore& store, PubSubManager& pubsub);
     std::pair<std::string, bool> dispatch(std::vector<std::string>& args,
                                           ClientState& client);
 
 private:
     RedisStore& store_;
+    PubSubManager& pubsub_;
 
     std::string handlePing(std::vector<std::string>& args, ClientState& c);
     std::string handleEcho(std::vector<std::string>& args, ClientState& c);
