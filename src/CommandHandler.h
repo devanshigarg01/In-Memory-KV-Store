@@ -4,19 +4,27 @@
 #include <utility>
 #include <vector>
 
+#include <string>
+#include <unordered_map>
+
 #include "ClientState.h"
 #include "PubSubManager.h"
 #include "RedisStore.h"
+#include "ReplicationManager.h"
 
 class CommandHandler {
 public:
-    CommandHandler(RedisStore& store, PubSubManager& pubsub);
+    CommandHandler(RedisStore& store, PubSubManager& pubsub,
+                   ReplicationManager& repl,
+                   const std::unordered_map<std::string, std::string>& config);
     std::pair<std::string, bool> dispatch(std::vector<std::string>& args,
                                           ClientState& client);
 
 private:
     RedisStore& store_;
     PubSubManager& pubsub_;
+    ReplicationManager& repl_;
+    const std::unordered_map<std::string, std::string>& config_;
 
     std::string handlePing(std::vector<std::string>& args, ClientState& c);
     std::string handleEcho(std::vector<std::string>& args, ClientState& c);

@@ -1,27 +1,20 @@
 #include "CommandHandler.h"
 
-#include <arpa/inet.h>
-#include <fnmatch.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
 #include <algorithm>
-#include <chrono>
-#include <iostream>
-#include <sstream>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "Globals.h"
 #include "PubSubManager.h"
+#include "ReplicationManager.h"
 #include "RespProtocol.h"
 
 using namespace std;
-using namespace std::chrono;
 
-CommandHandler::CommandHandler(RedisStore& store, PubSubManager& pubsub)
-    : store_(store), pubsub_(pubsub) {}
+CommandHandler::CommandHandler(
+    RedisStore& store, PubSubManager& pubsub, ReplicationManager& repl,
+    const unordered_map<string, string>& config)
+    : store_(store), pubsub_(pubsub), repl_(repl), config_(config) {}
 
 // ---------- dispatch ----------
 
@@ -108,21 +101,12 @@ string CommandHandler::handleSet(vector<string>& args, ClientState& c) {
     if (args.size() > 3) {
         string opt = args[3];
         transform(opt.begin(), opt.end(), opt.begin(), ::tolower);
-        if (opt == "px" && args.size() > 4) {
+        if (opt == "px" && args.size() > 4)
             expiry_ms = static_cast<uint64_t>(stoll(args[4]));
-        }
     }
 
     store_.set(key, value, expiry_ms);
-
-    // propagate to replicas
-    string cmd_str = RespProtocol::writeBulkString(args);
-    if (replicationState.role == "master") {
-        for (auto rfd : replicaFdList)
-            send(rfd, cmd_str.c_str(), cmd_str.length(), 0);
-        replicationState.master_repl_offset += cmd_str.length();
-    }
-
+    repl_.propagate(args);
     return "+OK\r\n";
 }
 
@@ -153,8 +137,9 @@ string CommandHandler::handleConfig(vector<string>& args, ClientState& c) {
     if (sub == "get" && args.size() > 2) {
         string param = args[2];
         transform(param.begin(), param.end(), param.begin(), ::tolower);
-        if (config.find(param) != config.end()) {
-            string val = config[param];
+        auto it = config_.find(param);
+        if (it != config_.end()) {
+            string val = it->second;
             return "*2\r\n$" + to_string(param.length()) + "\r\n" + param +
                    "\r\n$" + to_string(val.length()) + "\r\n" + val + "\r\n";
         }
@@ -166,80 +151,20 @@ string CommandHandler::handleConfig(vector<string>& args, ClientState& c) {
 string CommandHandler::handleInfo(vector<string>& args, ClientState& c) {
     string sub = args[1];
     transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
-    if (sub == "replication") {
-        string body = "role:" + replicationState.role + "\r\n" +
-                      "master_repl_offset:" +
-                      to_string(replicationState.master_repl_offset) + "\r\n" +
-                      "master_replid:" + replicationState.master_replid + "\r\n";
-        return "$" + to_string(body.length()) + "\r\n" + body + "\r\n";
-    }
+    if (sub == "replication") return repl_.infoReplication();
     return "$-1\r\n";
 }
 
 string CommandHandler::handleReplconf(vector<string>& args, ClientState& c) {
-    string sub = args[1];
-    transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
-    if (sub == "listening-port") {
-        slavePortList.push_back(stoi(args[2]));
-        return "+OK\r\n";
-    }
-    if (sub == "getack") {
-        string offset = to_string(replicationState.master_repl_offset);
-        return RespProtocol::writeBulkString({"REPLCONF", "ACK", offset});
-    }
-    return "+OK\r\n";
+    return repl_.handleReplconf(args, c);
 }
 
 string CommandHandler::handlePsync(vector<string>& args, ClientState& c) {
-    string out = "+FULLRESYNC " + replicationState.master_replid + " " +
-                 to_string(replicationState.master_repl_offset) + "\r\n";
-    out += "$" + to_string(empty_rdb.length()) + "\r\n" + empty_rdb;
-    replicaFdList.push_back(c.client_fd);
-    return out;
+    return repl_.handlePsync(args, c);
 }
 
 string CommandHandler::handleWait(vector<string>& args, ClientState& c) {
-    int numReplicas = stoi(args[1]);
-    long long timeout = stoll(args[2]);
-
-    if (replicaFdList.empty() || replicationState.master_repl_offset == 0)
-        return ":" + to_string(replicaFdList.size()) + "\r\n";
-
-    string getack = "*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
-    for (auto rfd : replicaFdList)
-        send(rfd, getack.c_str(), getack.length(), 0);
-
-    int ackCount = 0;
-    auto start = steady_clock::now();
-    while (ackCount < numReplicas) {
-        auto elapsed = duration_cast<milliseconds>(steady_clock::now() - start).count();
-        if (elapsed >= timeout) break;
-        long long remaining = timeout - elapsed;
-
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        int maxfd = 0;
-        for (auto rfd : replicaFdList) {
-            FD_SET(rfd, &rfds);
-            if (rfd > maxfd) maxfd = rfd;
-        }
-        struct timeval tv{remaining / 1000, (remaining % 1000) * 1000};
-        if (select(maxfd + 1, &rfds, nullptr, nullptr, &tv) <= 0) break;
-
-        for (auto rfd : replicaFdList) {
-            if (FD_ISSET(rfd, &rfds)) {
-                char buf[256];
-                int n = recv(rfd, buf, sizeof(buf) - 1, 0);
-                if (n > 0) {
-                    string resp(buf, n);
-                    if (resp.find("REPLCONF") != string::npos ||
-                        resp.find("ACK") != string::npos)
-                        ackCount++;
-                }
-            }
-        }
-    }
-    return ":" + to_string(ackCount) + "\r\n";
+    return repl_.handleWait(args, c);
 }
 
 string CommandHandler::handleMulti(vector<string>& args, ClientState& c) {

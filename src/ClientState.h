@@ -14,8 +14,3 @@ struct ClientState {
     std::set<std::string> patternSet;
 };
 
-struct ReplicationState {
-    std::string role;
-    std::string master_replid;
-    size_t master_repl_offset = 0;
-};
