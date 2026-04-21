@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-// #include "parser.h"
+#include "RespProtocol.h"
 using namespace std::chrono;
 using namespace std;
 
@@ -82,56 +82,6 @@ uint64_t getCurrentTime() {
         .count();
 }
 
-int parseInteger(istream& input) {
-    string num;
-    getline(input, num);
-    return stoi(num);
-}
-
-string parseBulkString(istream& input) {
-    string len;
-    getline(input, len);
-    // cout << "len" << len << endl;
-
-    if (len.empty() || len[0] != '$') {
-        throw runtime_error("Invalid bulk string format");
-    }
-
-    int length = stoi(len.substr(1));
-
-    if (length < 0) {
-        return "";
-    }
-
-    string buffer(length, '\0');
-    input.read(&buffer[0], length);
-    // cout << "buffer" << buffer << endl;
-
-    input.ignore(2);
-    return buffer;
-}
-
-string writeBulkString(vector<string> data) {
-    string output = "*" + to_string(data.size()) + "\r\n";
-
-    for (auto word : data) {
-        string add = "$" + to_string(word.length()) + "\r\n" + word + "\r\n";
-        output += add;
-    }
-
-    return output;
-}
-
-stringstream writeBulkStringStream(vector<string> data) {
-    stringstream result;
-    result << "*" + to_string(data.size()) << "\r\n";
-
-    for (auto word : data) {
-        result << "$" + to_string(word.length()) << "\r\n" << word << "\r\n";
-    }
-
-    return result;
-}
 
 void propogate(vector<string> data, string server_role) {
     if (server_role == "slave") return;
@@ -140,7 +90,7 @@ void propogate(vector<string> data, string server_role) {
     transform(command.begin(), command.end(), command.begin(), ::tolower);
 
     if (write_commands.find(command) != write_commands.end()) {
-        string command_string = writeBulkString(data);
+        string command_string = RespProtocol::writeBulkString(data);
         for (auto replica_fd : replicaFdList) {
             send(replica_fd, command_string.c_str(), command_string.length(),
                  0);
@@ -208,7 +158,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
     // cout << "word_0" << word[0] << endl;
 
     if (word[0] == ':') {
-        int numRecv = parseInteger(input);
+        int numRecv = RespProtocol::parseInteger(input);
     } else if (word.empty() || word[0] != '*') {
         throw runtime_error("Invalid RESP format");
     }
@@ -220,7 +170,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
 
     size_t totalBytes = 0;
     for (int i = 0; i < numArgs; ++i) {
-        string arg = parseBulkString(input);
+        string arg = RespProtocol::parseBulkString(input);
         cout << arg << endl;
         data.push_back(arg);
         // Calculate bytes: $<len>\r\n<arg>\r\n
@@ -363,7 +313,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
         } else if (command_info == "getack") {
             string offset = to_string(replicationState.master_repl_offset);
             vector<string> output_data = {"REPLCONF", "ACK", offset};
-            output = writeBulkString(output_data);
+            output = RespProtocol::writeBulkString(output_data);
             response_flag = true;
 
             cout << "Debug replconf" << endl;
@@ -481,7 +431,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
                     vector<string> queued_input =
                         curr_client.clientMultiQueue.front();
                     stringstream queued_input_str =
-                        writeBulkStringStream(queued_input);
+                        RespProtocol::writeBulkStringStream(queued_input);
                     curr_client.clientMultiQueue.pop();
                     cout << "Executing" << endl;
                     auto [queued_output, queued_response_flag] =
@@ -598,7 +548,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             outputPsubscribe.push_back("psubscribe");
             outputPsubscribe.push_back(pattern);
         }
-        output = writeBulkString(outputPsubscribe);
+        output = RespProtocol::writeBulkString(outputPsubscribe);
     } else if (command == "punsubscribe") {
         vector<string> punsubscribeOutput;
         cout << "punsubscribe" << data.size() << endl;
@@ -627,7 +577,7 @@ pair<string, bool> RespParser(istream& input, ClientState& curr_client) {
             }
         }
 
-        output = writeBulkString(punsubscribeOutput);
+        output = RespProtocol::writeBulkString(punsubscribeOutput);
     }
 
     if (server_role == "slave")
@@ -853,32 +803,6 @@ void sendReplicaACK() {
     }
 }
 
-// Read exactly n bytes from socket into buf
-static bool recvExact(int sock, char* buf, size_t n) {
-    size_t received = 0;
-    while (received < n) {
-        ssize_t r = recv(sock, buf + received, n - received, 0);
-        if (r <= 0) return false;
-        received += r;
-    }
-    return true;
-}
-
-// Read a line (ending with \r\n) from socket
-static string recvLine(int sock) {
-    string line;
-    char c;
-    while (true) {
-        ssize_t r = recv(sock, &c, 1, 0);
-        if (r <= 0) break;
-        if (c == '\n' && !line.empty() && line.back() == '\r') {
-            line.pop_back();
-            break;
-        }
-        line += c;
-    }
-    return line;
-}
 
 int ReplicaServer(int master_port, int slave_port) {
     int replicaSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -921,15 +845,15 @@ int ReplicaServer(int master_port, int slave_port) {
     send(replicaSocket, psync_cmd.c_str(), psync_cmd.length(), 0);
 
     // Read +FULLRESYNC ... line
-    string fullresync = recvLine(replicaSocket);
+    string fullresync = RespProtocol::recvLine(replicaSocket);
     std::cout << "Received: " << fullresync << "\n";
 
     // Read RDB: "$<len>\r\n<data>"
-    string rdb_header = recvLine(replicaSocket);
+    string rdb_header = RespProtocol::recvLine(replicaSocket);
     if (!rdb_header.empty() && rdb_header[0] == '$') {
         int rdb_len = stoi(rdb_header.substr(1));
         vector<char> rdb_data(rdb_len);
-        recvExact(replicaSocket, rdb_data.data(), rdb_len);
+        RespProtocol::recvExact(replicaSocket, rdb_data.data(), rdb_len);
         std::cout << "Received RDB (" << rdb_len << " bytes)\n";
     }
 
