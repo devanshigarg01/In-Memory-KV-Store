@@ -250,6 +250,6 @@ string CommandHandler::handlePubsub(vector<string>& args, ClientState& c) {
 }
 
 string CommandHandler::handleWatch(vector<string>& args, ClientState& c) {
-    if (!c.clientQueueFlag) return "-ERR WATCH inside MULTI is not allowed\r\n";
+    if (c.clientQueueFlag) return "-ERR WATCH inside MULTI is not allowed\r\n";
     return "+OK\r\n";
 }
