@@ -11,15 +11,15 @@
 
 using namespace std;
 
-CommandHandler::CommandHandler(
-    RedisStore& store, PubSubManager& pubsub, ReplicationManager& repl,
-    const unordered_map<string, string>& config)
+CommandHandler::CommandHandler(RedisStore& store, PubSubManager& pubsub,
+                               ReplicationManager& repl,
+                               const unordered_map<string, string>& config)
     : store_(store), pubsub_(pubsub), repl_(repl), config_(config) {}
 
 // ---------- dispatch ----------
 
 pair<string, bool> CommandHandler::dispatch(vector<string>& args,
-                                             ClientState& client) {
+                                            ClientState& client) {
     bool response_flag = true;
     string command = args[0];
     transform(command.begin(), command.end(), command.begin(), ::tolower);
@@ -34,7 +34,7 @@ pair<string, bool> CommandHandler::dispatch(vector<string>& args,
     // Pub/Sub mode: only allow specific commands
     static const set<string> pubsub_allowed = {
         "subscribe", "unsubscribe", "psubscribe", "punsubscribe",
-        "ping", "quit", "reset"};
+        "ping",      "quit",        "reset"};
     if (client.pubsubMode &&
         pubsub_allowed.find(command) == pubsub_allowed.end()) {
         return {"-ERR Can't execute '" + args[0] +
@@ -44,27 +44,50 @@ pair<string, bool> CommandHandler::dispatch(vector<string>& args,
     }
 
     string output;
-    if (command == "ping")         output = handlePing(args, client);
-    else if (command == "echo")    output = handleEcho(args, client);
-    else if (command == "quit")    output = handleQuit(args, client, response_flag);
-    else if (command == "set")     output = handleSet(args, client);
-    else if (command == "get")     output = handleGet(args, client);
-    else if (command == "incr")    output = handleIncr(args, client);
-    else if (command == "keys")    output = handleKeys(args, client);
-    else if (command == "config")  output = handleConfig(args, client);
-    else if (command == "info")    output = handleInfo(args, client);
-    else if (command == "replconf") output = handleReplconf(args, client);
-    else if (command == "psync")   output = handlePsync(args, client);
-    else if (command == "wait")    output = handleWait(args, client);
-    else if (command == "multi")   output = handleMulti(args, client);
-    else if (command == "exec")    output = handleExec(args, client);
-    else if (command == "discard") output = handleDiscard(args, client);
-    else if (command == "subscribe")   output = handleSubscribe(args, client);
-    else if (command == "unsubscribe") output = handleUnsubscribe(args, client);
-    else if (command == "publish")     output = handlePublish(args, client);
-    else if (command == "psubscribe")  output = handlePsubscribe(args, client);
-    else if (command == "punsubscribe") output = handlePunsubscribe(args, client);
-    else if (command == "pubsub")  output = handlePubsub(args, client);
+    if (command == "ping")
+        output = handlePing(args, client);
+    else if (command == "echo")
+        output = handleEcho(args, client);
+    else if (command == "quit")
+        output = handleQuit(args, client, response_flag);
+    else if (command == "set")
+        output = handleSet(args, client);
+    else if (command == "get")
+        output = handleGet(args, client);
+    else if (command == "incr")
+        output = handleIncr(args, client);
+    else if (command == "keys")
+        output = handleKeys(args, client);
+    else if (command == "config")
+        output = handleConfig(args, client);
+    else if (command == "info")
+        output = handleInfo(args, client);
+    else if (command == "replconf")
+        output = handleReplconf(args, client);
+    else if (command == "psync")
+        output = handlePsync(args, client);
+    else if (command == "wait")
+        output = handleWait(args, client);
+    else if (command == "multi")
+        output = handleMulti(args, client);
+    else if (command == "exec")
+        output = handleExec(args, client);
+    else if (command == "discard")
+        output = handleDiscard(args, client);
+    else if (command == "subscribe")
+        output = handleSubscribe(args, client);
+    else if (command == "unsubscribe")
+        output = handleUnsubscribe(args, client);
+    else if (command == "publish")
+        output = handlePublish(args, client);
+    else if (command == "psubscribe")
+        output = handlePsubscribe(args, client);
+    else if (command == "punsubscribe")
+        output = handlePunsubscribe(args, client);
+    else if (command == "pubsub")
+        output = handlePubsub(args, client);
+    else if (command == "watch")
+        output = handleWatch(args, client);
 
     return {output, response_flag};
 }
@@ -80,14 +103,15 @@ string CommandHandler::handleEcho(vector<string>& args, ClientState& c) {
     if (args.size() > 2) {
         string out = "*" + to_string(args.size() - 1) + "\r\n";
         for (size_t i = 1; i < args.size(); i++)
-            out += "$" + to_string(args[i].length()) + "\r\n" + args[i] + "\r\n";
+            out +=
+                "$" + to_string(args[i].length()) + "\r\n" + args[i] + "\r\n";
         return out;
     }
     return "$" + to_string(args[1].length()) + "\r\n" + args[1] + "\r\n";
 }
 
 string CommandHandler::handleQuit(vector<string>& args, ClientState& c,
-                                   bool& response_flag) {
+                                  bool& response_flag) {
     c.pubsubMode = false;
     response_flag = false;
     return "+OK\r\n";
@@ -213,14 +237,19 @@ string CommandHandler::handlePsubscribe(vector<string>& args, ClientState& c) {
     return pubsub_.psubscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
-string CommandHandler::handlePunsubscribe(vector<string>& args, ClientState& c) {
+string CommandHandler::handlePunsubscribe(vector<string>& args,
+                                          ClientState& c) {
     return pubsub_.punsubscribe(c.client_fd, {args.begin() + 1, args.end()}, c);
 }
 
 string CommandHandler::handlePubsub(vector<string>& args, ClientState& c) {
     string sub = args[1];
     transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
-    if (sub == "numsub")
-        return pubsub_.numsub({args.begin() + 2, args.end()});
+    if (sub == "numsub") return pubsub_.numsub({args.begin() + 2, args.end()});
     return "-ERR unknown subcommand\r\n";
+}
+
+string CommandHandler::handleWatch(vector<string>& args, ClientState& c) {
+    if (!c.clientQueueFlag) return "-ERR WATCH inside MULTI is not allowed\r\n";
+    return "+OK\r\n";
 }
