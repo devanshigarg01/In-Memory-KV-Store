@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -14,7 +15,8 @@ class CommandHandler {
    public:
     CommandHandler(RedisStore& store, PubSubManager& pubsub,
                    ReplicationManager& repl,
-                   const std::unordered_map<std::string, std::string>& config);
+                   const std::unordered_map<std::string, std::string>& config,
+                   std::function<void(int)> markDirty);
     std::pair<std::string, bool> dispatch(std::vector<std::string>& args,
                                           ClientState& client);
 
@@ -23,6 +25,7 @@ class CommandHandler {
     PubSubManager& pubsub_;
     ReplicationManager& repl_;
     const std::unordered_map<std::string, std::string>& config_;
+    std::function<void(int)> markDirty_;
 
     std::string handlePing(std::vector<std::string>& args, ClientState& c);
     std::string handleEcho(std::vector<std::string>& args, ClientState& c);
@@ -50,4 +53,5 @@ class CommandHandler {
                                    ClientState& c);
     std::string handlePubsub(std::vector<std::string>& args, ClientState& c);
     std::string handleWatch(std::vector<std::string>& args, ClientState& c);
+    std::string handleUnwatch(std::vector<std::string>& args, ClientState& c);
 };

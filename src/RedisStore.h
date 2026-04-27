@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -19,10 +20,15 @@ public:
                      std::unordered_map<std::string, std::string> data,
                      std::unordered_map<std::string, uint64_t> expiry);
 
+    void addWatcher(const std::string& key, int fd);
+    void removeWatcher(int fd);
+    std::set<int> getWatchers(const std::string& key) const;
+
 private:
     std::unordered_map<std::string, std::string> data_;
     std::unordered_map<std::string, uint64_t> expiry_;
     std::vector<std::string> keys_;
+    std::unordered_map<std::string, std::set<int>> watchers_;
 
     uint64_t now() const;
     bool isExpired(const std::string& key) const;

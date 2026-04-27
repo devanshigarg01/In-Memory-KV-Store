@@ -31,10 +31,12 @@ static ClientState makeClientState(int fd) {
     return cs;
 }
 
-static void removeClient(int fd, PubSubManager& pubsub, ReplicationManager& repl) {
+static void removeClient(int fd, PubSubManager& pubsub, ReplicationManager& repl,
+                         RedisStore& store) {
     ClientState& cs = client_map[fd];
     pubsub.removeClient(fd, cs);
     repl.unregisterMasterFd(fd);
+    store.removeWatcher(fd);
     client_map.erase(fd);
 }
 
@@ -102,7 +104,10 @@ int main(int argc, char** argv) {
 
     PubSubManager pubsub;
     ReplicationManager repl(server_role);
-    CommandHandler handler(store, pubsub, repl, config);
+    CommandHandler handler(store, pubsub, repl, config, [&](int fd) {
+        auto it = client_map.find(fd);
+        if (it != client_map.end()) it->second.watchDirty = true;
+    });
 
     int master_fd = -1;
     if (server_role == "slave") {
@@ -157,7 +162,7 @@ int main(int argc, char** argv) {
                 char buffer[1024];
                 int bytes_rec = recv(fd, buffer, sizeof(buffer) - 1, 0);
                 if (bytes_rec <= 0) {
-                    removeClient(fd, pubsub, repl);
+                    removeClient(fd, pubsub, repl, store);
                     close(fd);
                     FD_CLR(fd, &active_fds);
                     continue;

@@ -1,6 +1,7 @@
 #include "CommandHandler.h"
 
 #include <algorithm>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -13,8 +14,10 @@ using namespace std;
 
 CommandHandler::CommandHandler(RedisStore& store, PubSubManager& pubsub,
                                ReplicationManager& repl,
-                               const unordered_map<string, string>& config)
-    : store_(store), pubsub_(pubsub), repl_(repl), config_(config) {}
+                               const unordered_map<string, string>& config,
+                               function<void(int)> markDirty)
+    : store_(store), pubsub_(pubsub), repl_(repl), config_(config),
+      markDirty_(move(markDirty)) {}
 
 // ---------- dispatch ----------
 
@@ -88,6 +91,8 @@ pair<string, bool> CommandHandler::dispatch(vector<string>& args,
         output = handlePubsub(args, client);
     else if (command == "watch")
         output = handleWatch(args, client);
+    else if (command == "unwatch")
+        output = handleUnwatch(args, client);
 
     return {output, response_flag};
 }
@@ -131,6 +136,7 @@ string CommandHandler::handleSet(vector<string>& args, ClientState& c) {
 
     store_.set(key, value, expiry_ms);
     repl_.propagate(args);
+    for (int wfd : store_.getWatchers(key)) markDirty_(wfd);
     return "+OK\r\n";
 }
 
@@ -199,8 +205,20 @@ string CommandHandler::handleMulti(vector<string>& args, ClientState& c) {
 string CommandHandler::handleExec(vector<string>& args, ClientState& c) {
     if (!c.clientQueueFlag) return "-ERR EXEC without MULTI\r\n";
     c.clientQueueFlag = false;
-    if (c.clientMultiQueue.empty()) return "*0\r\n";
 
+    // Abort if any watched key was modified by another client
+    if (c.watchDirty) {
+        c.watchDirty = false;
+        c.watchedKeys.clear();
+        store_.removeWatcher(c.client_fd);
+        while (!c.clientMultiQueue.empty()) c.clientMultiQueue.pop();
+        return "*-1\r\n";
+    }
+
+    c.watchedKeys.clear();
+    store_.removeWatcher(c.client_fd);
+
+    if (c.clientMultiQueue.empty()) return "*0\r\n";
     int count = c.clientMultiQueue.size();
     string out = "*" + to_string(count) + "\r\n";
     while (!c.clientMultiQueue.empty()) {
@@ -216,6 +234,9 @@ string CommandHandler::handleDiscard(vector<string>& args, ClientState& c) {
     if (!c.clientQueueFlag) return "-ERR DISCARD without MULTI\r\n";
     c.clientQueueFlag = false;
     while (!c.clientMultiQueue.empty()) c.clientMultiQueue.pop();
+    c.watchDirty = false;
+    c.watchedKeys.clear();
+    store_.removeWatcher(c.client_fd);
     return "+OK\r\n";
 }
 
@@ -251,5 +272,16 @@ string CommandHandler::handlePubsub(vector<string>& args, ClientState& c) {
 
 string CommandHandler::handleWatch(vector<string>& args, ClientState& c) {
     if (c.clientQueueFlag) return "-ERR WATCH inside MULTI is not allowed\r\n";
+    for (size_t i = 1; i < args.size(); ++i) {
+        c.watchedKeys.insert(args[i]);
+        store_.addWatcher(args[i], c.client_fd);
+    }
+    return "+OK\r\n";
+}
+
+string CommandHandler::handleUnwatch(vector<string>& args, ClientState& c) {
+    c.watchedKeys.clear();
+    c.watchDirty = false;
+    store_.removeWatcher(c.client_fd);
     return "+OK\r\n";
 }

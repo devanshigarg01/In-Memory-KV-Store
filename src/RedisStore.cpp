@@ -1,6 +1,7 @@
 #include "RedisStore.h"
 
 #include <chrono>
+#include <set>
 #include <stdexcept>
 #include <variant>
 
@@ -71,6 +72,20 @@ vector<string> RedisStore::keys() const {
         if (!isExpired(k)) result.push_back(k);
     }
     return result;
+}
+
+void RedisStore::addWatcher(const string& key, int fd) {
+    watchers_[key].insert(fd);
+}
+
+void RedisStore::removeWatcher(int fd) {
+    for (auto& [key, fds] : watchers_) fds.erase(fd);
+}
+
+set<int> RedisStore::getWatchers(const string& key) const {
+    auto it = watchers_.find(key);
+    if (it == watchers_.end()) return {};
+    return it->second;
 }
 
 void RedisStore::loadFromRDB(vector<string> loaded_keys,

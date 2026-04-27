@@ -12,5 +12,7 @@ struct ClientState {
     std::queue<std::vector<std::string>> clientMultiQueue;
     std::set<std::string> channelSet;
     std::set<std::string> patternSet;
+    std::set<std::string> watchedKeys;
+    bool watchDirty = false;
 };
 
