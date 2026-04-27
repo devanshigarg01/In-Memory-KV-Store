@@ -26,7 +26,7 @@ pair<string, bool> CommandHandler::dispatch(vector<string>& args,
 
     // MULTI queue: buffer all commands except EXEC/DISCARD/MULTI
     if (command != "exec" && command != "discard" && command != "multi" &&
-        client.clientQueueFlag) {
+        command != "watch" && client.clientQueueFlag) {
         client.clientMultiQueue.push(args);
         return {"+QUEUED\r\n", true};
     }
